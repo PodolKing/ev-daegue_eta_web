@@ -1,27 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { IconRail } from "@/components/layout/IconRail";
 import { TopBar } from "@/components/layout/TopBar";
 import { MapView } from "@/components/map/MapView";
 import { StationList } from "@/components/map/StationList";
 import { fetchHealth, fetchStations } from "@/lib/api";
 import { DAEGU_CENTER, useMapStore } from "@/stores/mapStore";
+import { useLocationStore } from "@/stores/locationStore";
 
 export function AppShell() {
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
+  const didBootstrapCenter = useRef(false);
 
   const radiusKm = useMapStore((s) => s.radiusKm);
-  const userLocation = useMapStore((s) => s.userLocation);
-  const setUserLocation = useMapStore((s) => s.setUserLocation);
   const setCenter = useMapStore((s) => s.setCenter);
   const setStations = useMapStore((s) => s.setStations);
   const setLoading = useMapStore((s) => s.setLoading);
   const setError = useMapStore((s) => s.setError);
 
+  const coords = useLocationStore((s) => s.coords);
+  const locateOnce = useLocationStore((s) => s.locateOnce);
+
   const loadStations = useCallback(async () => {
-    const origin = userLocation ?? DAEGU_CENTER;
+    const origin = coords ?? DAEGU_CENTER;
     setLoading(true);
     setError(null);
     try {
@@ -37,7 +40,7 @@ export function AppShell() {
     } finally {
       setLoading(false);
     }
-  }, [radiusKm, userLocation, setStations, setLoading, setError]);
+  }, [radiusKm, coords, setStations, setLoading, setError]);
 
   useEffect(() => {
     fetchHealth()
@@ -45,23 +48,19 @@ export function AppShell() {
       .catch(() => setApiOnline(false));
   }, []);
 
+  // Bootstrap: soft-fail GPS (permission off must not throw / freeze UI)
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setCenter(DAEGU_CENTER);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserLocation(next);
-        setCenter(next);
-      },
-      () => {
-        setCenter(DAEGU_CENTER);
-      },
-      { enableHighAccuracy: false, timeout: 8000 },
-    );
-  }, [setCenter, setUserLocation]);
+    void locateOnce().catch(() => {
+      /* stay on DAEGU_CENTER; error lives in locationStore */
+    });
+  }, [locateOnce]);
+
+  // First successful fix only → map center (later pans: MapView 현위치 버튼)
+  useEffect(() => {
+    if (!coords || didBootstrapCenter.current) return;
+    didBootstrapCenter.current = true;
+    setCenter({ lat: coords.lat, lng: coords.lng });
+  }, [coords, setCenter]);
 
   useEffect(() => {
     void loadStations();

@@ -8,8 +8,8 @@ export type TmapPlaceResult = {
 
 /**
  * TMAP 장소/주소 검색.
- * TODO: TMAP POI / 통합검색 API 연동 (FE SDK 또는 BE 프록시).
- * 키는 FE 지도용 `NEXT_PUBLIC_TMAP_APP_KEY` 또는 BE `TMAP_APP_KEY` 정책에 맞게.
+ * @see FEATURES.tmapPlaceSearch — false면 UI에 「미구현」표시.
+ * TODO: TMAP POI / 통합검색 API 연동 후 FEATURES.tmapPlaceSearch = true
  */
 export async function searchTmapPlaces(
   query: string,

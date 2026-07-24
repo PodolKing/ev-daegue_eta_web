@@ -138,11 +138,11 @@ API 문서: `http://localhost:8000/docs`
 | 구분 | 내용 |
 |---|---|
 | 진행 단계 | 스켈레톤 구축 · DB/외부 연동 전 |
-| FE | `/map`·로그인/가입 UI, TMAP 실연동 전, stations 클라이언트 뼈대 |
+| FE | `/map`·로그인/가입 UI, `locationStore` follow/현위치 정리, TMAP 실연동 전, stations 클라이언트 뼈대 |
 | BE | FastAPI 뼈대, stations/auth 시그니처·TODO |
 | 문서 | README 공개용, stations/auth 계약, rules, 본 온보딩 섹션 |
 | Git | `web/`·`api/` 별도 리포. 상위는 git 없음 |
-| 다음 | stations DB → TMAP SDK → OAuth/세션 실구현 → 포인트 |
+| 다음 | stations DB → TMAP SDK → OAuth/세션 실구현 → 위치 watch/테스트모드 → 포인트 |
 
 기준 합의: 워크스페이스 `docs/프로젝트_현황_및_합의사항_20260723.md` (변수명·코드 의미 변경 금지)
 
@@ -199,6 +199,52 @@ API 문서: `http://localhost:8000/docs`
 
 ### 한 일
 - 본 문서 상단에 팀원용 **세팅 순서·실행 명령·포트·env 키 이름·트러블슈팅·Git 규칙** 추가 (실값 없음).
+
+---
+
+## 2026-07-24 — locationStore 뼈대 (공유 현위치)
+
+### 한 일
+- FE: `types/location.ts`, `stores/locationStore.ts` 추가 (`coords` / `source` / `follow` / `testMode` / `locateOnce`·`startWatch` stub).
+- `mapStore`에서 `userLocation` 제거 — 지도 카메라(`center`)와 사용자 위치 분리.
+- `AppShell`·`MapView`가 `locationStore` 소비 (반경 API origin·마커·현위치 버튼 follow).
+
+### 결정
+- 현위치는 여러 컨슈머(지도·반경검색·거리·추후 네비)가 쓰므로 전용 zustand store.
+- 테스트 모드는 별도 페이지가 아니라 같은 store + `testMode`/`setTestCoords`.
+
+### 다음
+- `startWatch` 실구현, 지도 클릭 테스트 입력, TMAP 마커로 coords 투영, `FEATURES.moveToMyLocation` 연동.
+
+---
+
+## 2026-07-24 — 현위치 버튼 1회만 이동 버그 정리
+
+### 한 일
+- `locationStore`: `locateOnce`를 실제 Promise로 수정, `requestFollow` + `followEpoch` 추가 (같은 좌표라도 재이동).
+- `MapView`: 카메라 경로 단일화 — follow→`mapStore.center`→TMAP `setCenter`. 버튼에서 직접 `map.setCenter` 제거.
+- `MapSearchBar` 장소 선택 시 `follow` 해제.
+
+### 결정
+- 현위치 탭마다 `followEpoch`를 올려 이펙트가 다시 돌게 함. GPS는 버튼마다 `locateOnce`로 갱신.
+
+### 다음
+- `FEATURES.moveToMyLocation` true 후 실기기/브라우저에서 반복 탭 확인. TMAP 마커로 coords 투영.
+
+---
+
+## 2026-07-24 — 현위치 거부 먹통·1회 이동 재수정
+
+### 한 일
+- AppShell `locateOnce` rejection catch (위치 OFF 시 unhandled rejection 오버레이 방지).
+- 현위치: 캐시 좌표로 즉시 `map.setCenter` 후 GPS 갱신 (이펙트 의존 제거).
+- 권한 거부 메시지·버튼 옆 에러 표시. `FEATURES.moveToMyLocation` true.
+
+### 결정
+- 카메라 이동은 버튼에서 imperative. drag/현위치 후에는 center sync 스킵.
+
+### 다음
+- 위치 OFF·허용·지도 팬 후 ◎ 반복 탭 확인.
 
 ---
 
