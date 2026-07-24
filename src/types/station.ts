@@ -17,4 +17,4 @@ export type StationListResponse = {
   count: number;
 };
 
-export type RadiusKm = 3 | 5 | 10;
+export type RadiusKm = 1 | 3 | 5;

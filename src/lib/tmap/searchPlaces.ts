@@ -1,3 +1,5 @@
+import { API_BASE } from "@/lib/api";
+
 export type TmapPlaceResult = {
   id: string;
   name: string;
@@ -7,9 +9,7 @@ export type TmapPlaceResult = {
 };
 
 /**
- * TMAP 장소/주소 검색.
- * TODO: TMAP POI / 통합검색 API 연동 (FE SDK 또는 BE 프록시).
- * 키는 FE 지도용 `NEXT_PUBLIC_TMAP_APP_KEY` 또는 BE `TMAP_APP_KEY` 정책에 맞게.
+ * 장소/주소 검색 — BE `GET /api/v1/places/search` (TMAP POI 프록시).
  */
 export async function searchTmapPlaces(
   query: string,
@@ -18,7 +18,12 @@ export async function searchTmapPlaces(
   const q = query.trim();
   if (!q) return [];
 
-  // TODO: call TMAP search API, map response → TmapPlaceResult[]
   void _center;
-  return [];
+
+  const params = new URLSearchParams({ keyword: q });
+  const res = await fetch(`${API_BASE}/api/v1/places/search?${params}`);
+  if (!res.ok) {
+    throw new Error(`places search ${res.status}`);
+  }
+  return res.json() as Promise<TmapPlaceResult[]>;
 }
