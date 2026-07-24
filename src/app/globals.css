@@ -1,26 +1,98 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-muted: #f0f2f5;
+  --border: #e6e8ec;
+  --border-strong: #d5d8de;
+  --text: #1a1d24;
+  --text-secondary: #5c6370;
+  --text-muted: #8b929e;
+  --accent: #2f6fed;
+  --accent-soft: #eaf1ff;
+  --success: #1f9d63;
+  --success-soft: #e8f7ef;
+  --warning: #c47f17;
+  --warning-soft: #fff6e8;
+  --danger: #d64545;
+  --rail: #f0f2f5;
+  --shadow-sm: 0 1px 2px rgba(26, 29, 36, 0.04);
+  --shadow-md: 0 8px 24px rgba(26, 29, 36, 0.06);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s ease-out both;
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 1.6s ease-in-out infinite;
+}
+
+.map-grid {
+  background-color: #eef1f5;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.75) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.75) 1px, transparent 1px),
+    radial-gradient(ellipse at 30% 20%, rgba(47, 111, 237, 0.06), transparent 55%),
+    radial-gradient(ellipse at 70% 80%, rgba(31, 157, 99, 0.05), transparent 50%);
+  background-size:
+    48px 48px,
+    48px 48px,
+    100% 100%,
+    100% 100%;
 }
