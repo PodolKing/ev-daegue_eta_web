@@ -196,23 +196,23 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
       {!loading && error && error !== "__UNIMPLEMENTED__" && results.length === 0 && (
         <p className="px-4 py-3 text-[13px] text-[var(--text-secondary)]">{error}</p>
       )}
-      {!loading &&
-        results.map((place) => (
-          <button
-            key={place.id}
-            type="button"
-            role="option"
-            onClick={() => selectPlace(place)}
-            className="flex w-full flex-col gap-0.5 border-b border-[var(--border)] px-4 py-3 text-left last:border-b-0 active:bg-[var(--surface-muted)] hover:bg-[var(--surface-muted)]"
-          >
-            <span className="truncate text-[13px] font-semibold text-[var(--text)]">
-              {place.name}
-            </span>
-            <span className="truncate text-[11px] text-[var(--text-muted)]">
-              {place.address}
-            </span>
-          </button>
-        ))}
+        {!loading &&
+          results.map((place, index) => (
+            <button
+              key={`${place.id}-${index}`}
+              type="button"
+              role="option"
+              onClick={() => selectPlace(place)}
+              className="flex w-full flex-col gap-0.5 border-b border-[var(--border)] px-4 py-3 text-left last:border-b-0 active:bg-[var(--surface-muted)] hover:bg-[var(--surface-muted)]"
+            >
+              <span className="truncate text-[13px] font-semibold text-[var(--text)]">
+                {place.name}
+              </span>
+              <span className="truncate text-[11px] text-[var(--text-muted)]">
+                {place.address}
+              </span>
+            </button>
+          ))}
     </div>
   );
 

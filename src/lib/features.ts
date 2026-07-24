@@ -4,7 +4,7 @@
  */
 export const FEATURES = {
   /** TMAP 장소/주소 검색 API */
-  tmapPlaceSearch: false,
+  tmapPlaceSearch: true,
   /** 현위치 버튼 → geolocation + map center */
   moveToMyLocation: true,
   /** BE stations 반경(Haversine) 필터 — UI 뼈대만 있는 동안 false */

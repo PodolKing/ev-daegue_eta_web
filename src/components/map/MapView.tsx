@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
 import { RadiusControl } from "@/components/map/RadiusControl";
@@ -47,12 +47,15 @@ export function MapView() {
 
   const mapInstanceRef = useRef<any>(null);
   const scriptRef = useRef<HTMLScriptElement | null>(null);
+  const myLocationMarkerRef = useRef<any>(null);
   /** When true, next center-effect skip — map already moved (drag / 현위치). */
   const skipCenterSyncRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
 
   const center = useMapStore((s) => s.center);
   const setCenter = useMapStore((s) => s.setCenter);
   const setZoom = useMapStore((s) => s.setZoom);
+  const setMap = useMapStore((s) => s.setMap);
 
   const stations = useMapStore((s) => s.stations);
   const selectedId = useMapStore((s) => s.selectedId);
@@ -108,6 +111,8 @@ export function MapView() {
 
 
     mapInstanceRef.current = map;
+    setMap(map);
+    setMapReady(true);
 
     // Apply latest store center (createMap may run after bootstrap GPS)
     const latest = useMapStore.getState().center;
@@ -162,17 +167,21 @@ export function MapView() {
    * SDK 로딩
    */
   useEffect(() => {
+    const clearMap = () => {
+      mapInstanceRef.current = null;
+      setMap(null);
+      setMapReady(false);
+    };
+
     if (window.Tmapv2?.Map) {
       createMap();
-      return;
+      return clearMap;
     }
-
 
     const existing =
       document.querySelector(
         'script[data-tmap-sdk="true"]',
       );
-
 
     if (existing) {
       existing.addEventListener(
@@ -180,13 +189,14 @@ export function MapView() {
         createMap,
       );
 
-      return;
+      return () => {
+        existing.removeEventListener("load", createMap);
+        clearMap();
+      };
     }
-
 
     const script =
       document.createElement("script");
-
 
     script.dataset.tmapSdk = "true";
 
@@ -195,26 +205,24 @@ export function MapView() {
 
     script.async = true;
 
-
     script.onload = () => {
       setTimeout(() => {
         createMap();
       }, 100);
     };
 
-
     document.head.appendChild(script);
 
     scriptRef.current = script;
-
 
     return () => {
       script.removeEventListener(
         "load",
         createMap,
       );
+      clearMap();
     };
-  }, []);
+  }, [setMap]);
 
 
 
@@ -261,6 +269,36 @@ export function MapView() {
   }, []);
 
 
+
+  /**
+   * locationStore.coords → TMAP Marker (real map position, not screen-center overlay)
+   */
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!mapReady || !map || !window.Tmapv2?.Marker || !window.Tmapv2?.LatLng) {
+      return;
+    }
+
+    if (!coords) {
+      if (myLocationMarkerRef.current) {
+        myLocationMarkerRef.current.setMap(null);
+        myLocationMarkerRef.current = null;
+      }
+      return;
+    }
+
+    const latLng = new window.Tmapv2.LatLng(coords.lat, coords.lng);
+
+    if (!myLocationMarkerRef.current) {
+      myLocationMarkerRef.current = new window.Tmapv2.Marker({
+        position: latLng,
+        map,
+        title: "현위치",
+      });
+    } else {
+      myLocationMarkerRef.current.setPosition(latLng);
+    }
+  }, [coords, mapReady]);
 
   /**
    * External center changes (search / bootstrap / URL) → TMAP camera.
@@ -416,9 +454,8 @@ export function MapView() {
           <button
             type="button"
             onClick={handleMoveToMyLocation}
-            disabled={!FEATURES.moveToMyLocation}
+            disabled={!FEATURES.moveToMyLocation || locationStatus === "locating"}
             aria-label="현위치로 이동"
-            aria-busy={locationStatus === "locating"}
             title={locationError ?? "현위치로 이동"}
             className="
               flex
