@@ -22,7 +22,9 @@ export function RadiusControl() {
   const coords = useLocationStore((s) => s.coords);
 
   const circleRef = useRef<any>(null);
+  /** null = never user-picked; skip auto fitBounds on first map attach (avoids zoom-out). */
   const lastFitRadiusRef = useRef<RadiusKm | null>(null);
+  const userPickedRadiusRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.Tmapv2 || !map) return;
@@ -50,9 +52,14 @@ export function RadiusControl() {
         map,
       });
 
-      // 반경 변경(또는 최초)일 때만 시야 맞춤 — 현위치 갱신만으로는 줌 유지
-      const shouldFit = lastFitRadiusRef.current !== radiusKm;
-      if (shouldFit && typeof map.fitBounds === "function") {
+      // Only fit when user changes 1/3/5 — NOT on first map paint
+      // (fitBounds before layout/resize → peninsula-level zoom-out)
+      const shouldFit =
+        userPickedRadiusRef.current &&
+        lastFitRadiusRef.current !== radiusKm &&
+        typeof map.fitBounds === "function";
+
+      if (shouldFit) {
         lastFitRadiusRef.current = radiusKm;
 
         const latOffset = radiusKm / 111;
@@ -65,13 +72,25 @@ export function RadiusControl() {
         bounds.extend(
           new window.Tmapv2.LatLng(lat - latOffset, lng - lngOffset),
         );
-        map.fitBounds(bounds);
 
-        window.setTimeout(() => {
-          if (typeof map.getZoom === "function") {
-            setZoom(map.getZoom());
-          }
-        }, 100);
+        const runFit = () => {
+          if (typeof map.resize === "function") map.resize();
+          map.fitBounds(bounds);
+          window.setTimeout(() => {
+            if (typeof map.getZoom === "function") {
+              const z = map.getZoom();
+              // Guard against pathological zoom-out
+              if (typeof z === "number" && z < 11 && typeof map.setZoom === "function") {
+                map.setZoom(14);
+                setZoom(14);
+              } else if (typeof z === "number") {
+                setZoom(z);
+              }
+            }
+          }, 120);
+        };
+
+        window.requestAnimationFrame(runFit);
       }
     } catch (error) {
       console.error("Circle 생성 실패:", error);
@@ -106,7 +125,10 @@ export function RadiusControl() {
             <button
               key={r}
               type="button"
-              onClick={() => setRadiusKm(r)}
+              onClick={() => {
+                userPickedRadiusRef.current = true;
+                setRadiusKm(r);
+              }}
               className={[
                 "min-w-[52px] rounded-[var(--radius-pill)] px-3 py-1.5 text-[12px] font-semibold transition-colors",
                 active

@@ -55,9 +55,10 @@ export function parseMapUrlState(
   const zoom = Number(params.get("zoom"));
   const radius = Number(params.get("radius"));
 
-  if (Number.isFinite(lat)) out.lat = lat;
-  if (Number.isFinite(lng)) out.lng = lng;
-  if (Number.isFinite(zoom)) out.zoom = zoom;
+  // Reject 0 / NaN placeholders (e.g. broken returnUrl zoom=0 → peninsula zoom-out)
+  if (Number.isFinite(lat) && Math.abs(lat) > 0.01) out.lat = lat;
+  if (Number.isFinite(lng) && Math.abs(lng) > 0.01) out.lng = lng;
+  if (Number.isFinite(zoom) && zoom >= 5 && zoom <= 21) out.zoom = zoom;
   if (RADIUS_SET.has(radius)) out.radius = radius as RadiusKm;
 
   return out;
