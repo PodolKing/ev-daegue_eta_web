@@ -133,16 +133,16 @@ API 문서: `http://localhost:8000/docs`
 
 ---
 
-## 요약 (2026-07-24 기준)
+## 요약 (2026-07-27 기준)
 
 | 구분 | 내용 |
 |---|---|
-| 진행 단계 | 스켈레톤 구축 · DB/외부 연동 전 |
-| FE | `/map`·로그인/가입 UI, `locationStore` follow/현위치, places 검색→BE 연동 |
+| 진행 단계 | 지도 SDK 키 연동 · 모바일 터치 이슈 정리 |
+| FE | `/map`·places 검색, **TMAP jsv2+MAP_KEY**, 임시 station overlay 제거, 모바일 FAB/메뉴 터치 수정 |
 | BE | FastAPI 뼈대, stations/auth, **places TMAP POI 프록시** (`GET /api/v1/places/search`) |
 | 문서 | README 공개용, stations/auth 계약, rules, TMAP env=`NEXT_PUBLIC_TMAP_MAP_KEY`/`TMAP_APP_KEY` 확정 |
 | Git | `web/`·`api/` 별도 리포. 상위는 git 없음 |
-| 다음 | stations DB → 검색 UX 확인 → OAuth/세션 → 위치 watch → 포인트 |
+| 다음 | stations 좌표 마커 → 검색 UX 확인 → OAuth/세션 → 위치 watch → 포인트 |
 
 기준 합의: 워크스페이스 `docs/프로젝트_현황_및_합의사항_20260723.md` (변수명·코드 의미 변경 금지)
 
@@ -344,6 +344,43 @@ API 문서: `http://localhost:8000/docs`
 
 ### 다음
 - Ultra/Fold 실기기에서 메뉴 기본 닫힘·「메뉴」토글 확인.
+
+---
+
+## 2026-07-27 — 모바일 지도 미표시·버튼 먹통 수정
+
+### 한 일
+- `MapView`: TMAP SDK를 `apis.openapi.sk.com/tmap/jsv2?appKey=` + `NEXT_PUBLIC_TMAP_MAP_KEY`로 로드 (키 없는 topopentile 스크립트 제거).
+- 좌표 없는 임시 station 버튼 overlay·중앙 파란점 제거 (지도·FAB 터치 차단 원인).
+- 모바일 하단 시트·현위치/반경/메뉴를 `42dvh` 기준으로 맞추고 FAB/메뉴 z-index 상향. 시트 바깥은 `pointer-events-none`.
+
+### 결정
+- 충전소 지도 표시는 이후 좌표 기반 TMAP Marker로만. 임시 HTML 버튼 오버레이 금지.
+
+### 다음
+- 폰에서 하드 새로고침 후 타일·◎·반경·메뉴 토글 확인. TMAP 콘솔에 LAN Origin 허용.
+
+---
+
+## 2026-07-27 — TMAP z-index 가림 + 메뉴 위치
+
+### 한 일
+- `MapView`: 지도 컨테이너를 `z-0` 트랩으로 감싸 SDK 내부 z-index가 FAB/검색을 덮지 않게 함. UI는 `pointer-events` 분리 레이어.
+- 모바일「메뉴」버튼을 하단→**상단 우측**(검색 옆)으로 이동해 시트/상세와 겹침 제거.
+
+### 다음
+- FE 재시작(`NEXT_PUBLIC_*`) + 폰 하드 새로고침 후 재확인. 폰은 `npm run dev:lan` 권장.
+
+---
+
+## 2026-07-27 — TMAP LatLng 미준비 + allowedDevOrigins
+
+### 한 일
+- `MapView`: `LatLng`/`Map`이 constructor일 때만 create (부분 로드 크래시 방지), 폴링 재시도.
+- `next.config.ts`: `allowedDevOrigins`에 LAN IP (`172.30.1.7` 등) — 폰에서 Next 폰트/HMR 차단 해제.
+
+### 다음
+- **FE 서버 재시작** 필수(`next.config` 반영). 폰 강력 새로고침.
 
 ---
 
