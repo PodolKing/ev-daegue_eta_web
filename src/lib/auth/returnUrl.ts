@@ -9,7 +9,7 @@ export type MapUrlState = {
   radius: RadiusKm;
 };
 
-const RADIUS_SET = new Set<number>([1, 3, 5]);
+const RADIUS_SET = new Set<number>([1, 2, 3]);
 
 /**
  * Build internal returnUrl for OAuth round-trip.

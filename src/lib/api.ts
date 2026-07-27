@@ -4,10 +4,10 @@ export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
   "http://localhost:8000";
 
-/** UI 반경별 stations limit — 1→50 / 3→100 / 5→200 */
+/** UI 반경별 stations limit — 1→50 / 2→100 / 3→200 */
 export function limitForRadiusKm(radiusKm: RadiusKm | number): number {
   if (radiusKm <= 1) return 50;
-  if (radiusKm <= 3) return 100;
+  if (radiusKm <= 2) return 100;
   return 200;
 }
 

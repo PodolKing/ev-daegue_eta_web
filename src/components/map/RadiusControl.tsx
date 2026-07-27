@@ -5,13 +5,13 @@ import type { RadiusKm } from "@/types/station";
 import { useMapStore } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
 
-const OPTIONS: RadiusKm[] = [1, 3, 5];
+const OPTIONS: RadiusKm[] = [1, 2, 3];
 
 /** Fixed zoom per radius — circle may clip; prefer “nearby” feel over full-circle fit. */
 const ZOOM_BY_RADIUS: Record<RadiusKm, number> = {
   1: 16,
-  3: 15,
-  5: 14,
+  2: 15,
+  3: 14,
 };
 
 declare global {
@@ -51,7 +51,7 @@ export function RadiusControl() {
     try {
       // Stronger tint so radius change reads as coverage, not camera jump
       const fillOpacity =
-        radiusKm === 1 ? 0.22 : radiusKm === 3 ? 0.28 : 0.34;
+        radiusKm === 1 ? 0.22 : radiusKm === 2 ? 0.28 : 0.34;
 
       circleRef.current = new window.Tmapv2.Circle({
         center: centerLatLng,
@@ -64,7 +64,7 @@ export function RadiusControl() {
         map,
       });
 
-      // Only adjust camera when user taps 1/3/5 — NOT on first map paint
+      // Only adjust camera when user taps 1/2/3 — NOT on first map paint
       const shouldApplyZoom =
         userPickedRadiusRef.current &&
         lastAppliedRadiusRef.current !== radiusKm;
