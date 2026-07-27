@@ -1,8 +1,15 @@
-import type { StationListResponse } from "@/types/station";
+import type { RadiusKm, StationListResponse } from "@/types/station";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
   "http://localhost:8000";
+
+/** UI 반경별 stations limit — 1→50 / 3→100 / 5→200 */
+export function limitForRadiusKm(radiusKm: RadiusKm | number): number {
+  if (radiusKm <= 1) return 50;
+  if (radiusKm <= 3) return 100;
+  return 200;
+}
 
 export async function fetchStations(params: {
   lat: number;
@@ -10,14 +17,17 @@ export async function fetchStations(params: {
   radiusKm: number;
   limit?: number;
 }): Promise<StationListResponse> {
+  const limit = params.limit ?? limitForRadiusKm(params.radiusKm);
   const q = new URLSearchParams({
     lat: String(params.lat),
     lng: String(params.lng),
     radius_km: String(params.radiusKm),
-    limit: String(params.limit ?? 50),
+    limit: String(limit),
   });
 
-  const res = await fetch(`${API_BASE}/api/v1/stations?${q}`);
+  const res = await fetch(`${API_BASE}/api/v1/stations?${q}`, {
+    cache: "no-store",
+  });
   if (!res.ok) {
     throw new Error(`stations ${res.status}`);
   }

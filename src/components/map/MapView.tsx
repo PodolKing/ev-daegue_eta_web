@@ -9,6 +9,7 @@ import { MapSearchBar } from "@/components/map/MapSearchBar";
 import { UnimplementedBadge } from "@/components/ui/Unimplemented";
 import { FEATURES } from "@/lib/features";
 import { ensureTmapSdk, isTmapSdkReady } from "@/lib/tmap/loadSdk";
+import StationMarkers from "@/components/map/StationMarkers";
 
 declare global {
   interface Window {
@@ -324,6 +325,7 @@ export function MapView() {
       {/* Trap TMAP's internal z-index so it cannot cover FABs/search */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <div id={MAP_ELEMENT_ID} ref={mapRef} className="h-full w-full" />
+        <StationMarkers />
       </div>
 
       {/* UI chrome — sibling stacking context above the map trap */}

@@ -7,6 +7,13 @@ import { useLocationStore } from "@/stores/locationStore";
 
 const OPTIONS: RadiusKm[] = [1, 3, 5];
 
+/** Fixed zoom per radius — circle may clip; prefer “nearby” feel over full-circle fit. */
+const ZOOM_BY_RADIUS: Record<RadiusKm, number> = {
+  1: 16,
+  3: 15,
+  5: 14,
+};
+
 declare global {
   interface Window {
     Tmapv2: any;
@@ -19,11 +26,12 @@ export function RadiusControl() {
   const map = useMapStore((s) => s.map);
   const mapCenter = useMapStore((s) => s.center);
   const setZoom = useMapStore((s) => s.setZoom);
+  const setCenter = useMapStore((s) => s.setCenter);
   const coords = useLocationStore((s) => s.coords);
 
   const circleRef = useRef<any>(null);
-  /** null = never user-picked; skip auto fitBounds on first map attach (avoids zoom-out). */
-  const lastFitRadiusRef = useRef<RadiusKm | null>(null);
+  /** null = never user-picked; skip camera change on first map attach. */
+  const lastAppliedRadiusRef = useRef<RadiusKm | null>(null);
   const userPickedRadiusRef = useRef(false);
 
   useEffect(() => {
@@ -41,56 +49,43 @@ export function RadiusControl() {
     const centerLatLng = new window.Tmapv2.LatLng(lat, lng);
 
     try {
+      // Stronger tint so radius change reads as coverage, not camera jump
+      const fillOpacity =
+        radiusKm === 1 ? 0.22 : radiusKm === 3 ? 0.28 : 0.34;
+
       circleRef.current = new window.Tmapv2.Circle({
         center: centerLatLng,
         radius: radiusKm * 1000,
-        strokeColor: "#3B82F6",
-        strokeWeight: 2,
-        strokeOpacity: 0.8,
-        fillColor: "#60A5FA",
-        fillOpacity: 0.15,
+        strokeColor: "#2563EB",
+        strokeWeight: 1.5,
+        strokeOpacity: 0.55,
+        fillColor: "#3B82F6",
+        fillOpacity,
         map,
       });
 
-      // Only fit when user changes 1/3/5 — NOT on first map paint
-      // (fitBounds before layout/resize → peninsula-level zoom-out)
-      const shouldFit =
+      // Only adjust camera when user taps 1/3/5 — NOT on first map paint
+      const shouldApplyZoom =
         userPickedRadiusRef.current &&
-        lastFitRadiusRef.current !== radiusKm &&
-        typeof map.fitBounds === "function";
+        lastAppliedRadiusRef.current !== radiusKm;
 
-      if (shouldFit) {
-        lastFitRadiusRef.current = radiusKm;
+      if (shouldApplyZoom) {
+        lastAppliedRadiusRef.current = radiusKm;
+        const zoom = ZOOM_BY_RADIUS[radiusKm];
 
-        const latOffset = radiusKm / 111;
-        const lngOffset =
-          radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
-        const bounds = new window.Tmapv2.LatLngBounds();
-        bounds.extend(
-          new window.Tmapv2.LatLng(lat + latOffset, lng + lngOffset),
-        );
-        bounds.extend(
-          new window.Tmapv2.LatLng(lat - latOffset, lng - lngOffset),
-        );
-
-        const runFit = () => {
+        const runZoom = () => {
           if (typeof map.resize === "function") map.resize();
-          map.fitBounds(bounds);
-          window.setTimeout(() => {
-            if (typeof map.getZoom === "function") {
-              const z = map.getZoom();
-              // Guard against pathological zoom-out
-              if (typeof z === "number" && z < 11 && typeof map.setZoom === "function") {
-                map.setZoom(14);
-                setZoom(14);
-              } else if (typeof z === "number") {
-                setZoom(z);
-              }
-            }
-          }, 120);
+          if (typeof map.setCenter === "function") {
+            map.setCenter(centerLatLng);
+          }
+          if (typeof map.setZoom === "function") {
+            map.setZoom(zoom);
+          }
+          setCenter({ lat, lng });
+          setZoom(zoom);
         };
 
-        window.requestAnimationFrame(runFit);
+        window.requestAnimationFrame(runZoom);
       }
     } catch (error) {
       console.error("Circle 생성 실패:", error);
@@ -110,6 +105,7 @@ export function RadiusControl() {
     radiusKm,
     map,
     setZoom,
+    setCenter,
   ]);
 
   return (
