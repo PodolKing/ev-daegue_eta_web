@@ -118,12 +118,12 @@ export function AppShell() {
         <TopBar apiOnline={apiOnline} />
         <MapView />
 
-        {/* Compact: toggle icon rail — 목록 시트 위·우측 (검색/FAB와 겹침 방지) */}
+        {/* Compact: toggle icon rail — same band as 반경/현위치 FAB (sheet 바로 위·우측) */}
         {isCompact && (
           <button
             type="button"
             onClick={() => setRailOpen((v) => !v)}
-            className="absolute bottom-[calc(42%+0.75rem)] right-3 z-30 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)]"
+            className="absolute bottom-[calc(42dvh+0.75rem)] right-3 z-[45] rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)] touch-manipulation"
             aria-label={railOpen ? "메뉴 닫기" : "메뉴 열기"}
             aria-expanded={railOpen}
           >
@@ -135,18 +135,20 @@ export function AppShell() {
         <button
           type="button"
           onClick={() => setListPanelOpen((v) => !v)}
-          className="absolute left-3 top-1/2 z-30 hidden -translate-y-1/2 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)] md:block"
+          className="absolute left-3 top-1/2 z-[45] hidden -translate-y-1/2 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)] touch-manipulation md:block"
           aria-label={listPanelOpen ? "목록 접기" : "목록 펼치기"}
           aria-expanded={listPanelOpen}
         >
           {listPanelOpen ? "‹" : "›"}
         </button>
 
-        {/* Mobile bottom sheet — station list always shown */}
-        <div className="absolute inset-x-0 bottom-0 z-30 max-h-[42%] overflow-hidden rounded-t-[20px] border border-[var(--border)] bg-white shadow-[var(--shadow-md)] md:hidden">
-          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--border-strong)]" />
-          <div className="h-[calc(42dvh-12px)]">
-            <StationList />
+        {/* Mobile bottom sheet — station list (fixed 42dvh; FABs sit just above) */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 md:hidden">
+          <div className="pointer-events-auto max-h-[42dvh] overflow-hidden rounded-t-[20px] border border-[var(--border)] bg-white shadow-[var(--shadow-md)]">
+            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--border-strong)]" />
+            <div className="h-[calc(42dvh-12px)]">
+              <StationList />
+            </div>
           </div>
         </div>
       </main>
