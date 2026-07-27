@@ -416,7 +416,7 @@ export function MapView() {
           pointer-events-none
           absolute
           inset-x-0
-          top-[3.75rem]
+          top-[4.75rem]
           z-[28]
           flex
           justify-start

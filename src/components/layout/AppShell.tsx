@@ -6,13 +6,19 @@ import { TopBar } from "@/components/layout/TopBar";
 import { MapView } from "@/components/map/MapView";
 import { StationList } from "@/components/map/StationList";
 import { fetchHealth, fetchStations } from "@/lib/api";
+import { useCompactLayout } from "@/lib/device/useCompactLayout";
 import { DAEGU_CENTER, useMapStore } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
 
 export function AppShell() {
+  const isCompact = useCompactLayout();
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
-  const [panelOpen, setPanelOpen] = useState(true);
+  /** Station list side panel (md+) — default open. */
+  const [listPanelOpen, setListPanelOpen] = useState(true);
+  /** Icon rail — default closed until layout known (touch phones stay closed). */
+  const [railOpen, setRailOpen] = useState(false);
   const didBootstrapCenter = useRef(false);
+  const prevCompact = useRef<boolean | null>(null);
 
   const radiusKm = useMapStore((s) => s.radiusKm);
   const setCenter = useMapStore((s) => s.setCenter);
@@ -48,14 +54,12 @@ export function AppShell() {
       .catch(() => setApiOnline(false));
   }, []);
 
-  // Bootstrap: soft-fail GPS (permission off must not throw / freeze UI)
   useEffect(() => {
     void locateOnce().catch(() => {
       /* stay on DAEGU_CENTER; error lives in locationStore */
     });
   }, [locateOnce]);
 
-  // First successful fix only → map center (later pans: MapView 현위치 버튼)
   useEffect(() => {
     if (!coords || didBootstrapCenter.current) return;
     didBootstrapCenter.current = true;
@@ -66,15 +70,45 @@ export function AppShell() {
     void loadStations();
   }, [loadStations]);
 
+  // Touch / <md → rail closed by default. Crossing into desktop → open rail.
+  // User can still toggle; only auto-sync when compact *mode* changes.
+  useEffect(() => {
+    if (prevCompact.current === null) {
+      prevCompact.current = isCompact;
+      setRailOpen(!isCompact);
+      return;
+    }
+    if (prevCompact.current === isCompact) return;
+    prevCompact.current = isCompact;
+    setRailOpen(!isCompact);
+  }, [isCompact]);
+
+  // Rail width change → TMAP canvas resize
+  useEffect(() => {
+    const map = useMapStore.getState().map;
+    if (!map || typeof map.resize !== "function") return;
+    const id = window.setTimeout(() => map.resize(), 220);
+    return () => window.clearTimeout(id);
+  }, [railOpen, listPanelOpen]);
+
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-[var(--bg)]">
-      <IconRail />
+      <div
+        className={[
+          "relative z-20 h-full shrink-0 overflow-hidden border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200",
+          railOpen ? "w-[68px] border-r" : "w-0 border-r-0",
+        ].join(" ")}
+      >
+        <div className="h-full w-[68px]">
+          <IconRail />
+        </div>
+      </div>
 
-      {/* Discord-like channel panel */}
+      {/* Discord-like channel panel — station list (md+), default open */}
       <div
         className={[
           "relative z-10 hidden h-full shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200 md:block",
-          panelOpen ? "w-[300px]" : "w-0 overflow-hidden border-r-0",
+          listPanelOpen ? "w-[300px]" : "w-0 overflow-hidden border-r-0",
         ].join(" ")}
       >
         <StationList />
@@ -84,16 +118,31 @@ export function AppShell() {
         <TopBar apiOnline={apiOnline} />
         <MapView />
 
+        {/* Compact: toggle icon rail — 목록 시트 위·우측 (검색/FAB와 겹침 방지) */}
+        {isCompact && (
+          <button
+            type="button"
+            onClick={() => setRailOpen((v) => !v)}
+            className="absolute bottom-[calc(42%+0.75rem)] right-3 z-30 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)]"
+            aria-label={railOpen ? "메뉴 닫기" : "메뉴 열기"}
+            aria-expanded={railOpen}
+          >
+            {railOpen ? "닫기" : "메뉴"}
+          </button>
+        )}
+
+        {/* md+: toggle station list side panel */}
         <button
           type="button"
-          onClick={() => setPanelOpen((v) => !v)}
+          onClick={() => setListPanelOpen((v) => !v)}
           className="absolute left-3 top-1/2 z-30 hidden -translate-y-1/2 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)] md:block"
-          aria-label={panelOpen ? "목록 접기" : "목록 펼치기"}
+          aria-label={listPanelOpen ? "목록 접기" : "목록 펼치기"}
+          aria-expanded={listPanelOpen}
         >
-          {panelOpen ? "‹" : "›"}
+          {listPanelOpen ? "‹" : "›"}
         </button>
 
-        {/* Mobile bottom sheet list */}
+        {/* Mobile bottom sheet — station list always shown */}
         <div className="absolute inset-x-0 bottom-0 z-30 max-h-[42%] overflow-hidden rounded-t-[20px] border border-[var(--border)] bg-white shadow-[var(--shadow-md)] md:hidden">
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--border-strong)]" />
           <div className="h-[calc(42dvh-12px)]">

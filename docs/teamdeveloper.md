@@ -289,6 +289,64 @@ API 문서: `http://localhost:8000/docs`
 
 ---
 
+## 2026-07-27 — 좁은 화면 충전소 목록 토글 (map-first)
+
+### 한 일
+- `useCompactLayout`: `analyticsDeviceType() === "mobile"` **또는** width ≤ 400px.
+- `AppShell`: compact면 목록 기본 닫힘. `<md` 바텀시트·`md+` 사이드 패널 모두 토글. 우측 하단「목록」버튼.
+- `MapView`: 시트 열림 시 현위치/반경 FAB 위치 상향.
+
+### 결정
+- 좁은 화면은 지도 우선. 목록은 필요할 때만.
+
+### 다음
+- 실기기·≤400px에서 지도 가시 영역·토글 확인. IconRail(68px) 축소는 후속 선택.
+
+---
+
+## 2026-07-27 — 좁은 화면 IconRail(메뉴) 토글 정정
+
+### 한 일
+- 오해 수정: 토글 대상은 **충전소 목록이 아니라** 좌측 IconRail(지도·즐겨찾기·포인트·설정).
+- 충전소 목록(바텀시트/`md+` 패널)은 **기본 열림** 유지.
+- compact(mobile 또는 ≤400px)에서 레일 기본 닫힘 +「메뉴」버튼으로 on/off.
+
+### 결정
+- 좁은 화면에서 가로 68px 레일을 접어 지도 폭 확보.
+
+### 다음
+- 실기기에서 메뉴 토글·목록 상시 표시 확인.
+
+---
+
+## 2026-07-27 — 메뉴(IconRail) compact 기준 400→500px
+
+### 한 일
+- `COMPACT_MAX_WIDTH_PX` 400 → **500**. mobile UA 또는 width ≤ 500이면 레일 기본 숨김.
+
+### 결정
+- 일반 폰·좁은 창에 여유 있게 맞춤.
+
+### 다음
+- (없음)
+
+---
+
+## 2026-07-27 — IconRail compact: 터치 기기 기준 (CSS 폭 프리셋 폐기)
+
+### 한 일
+- `useCompactLayout`: DevTools CSS 폭(344/412/500)·`analyticsDeviceType` 제거.
+- 실기기: `(hover: none) and (pointer: coarse)` → 항상 compact. 그외 `max-width: 767px`.
+- `railOpen` 기본 `false` (폰에서 레일 깜빡임 방지).
+
+### 결정
+- 레이아웃은 UA/에뮬 CSS 숫자가 아니라 **포인터·호버(실기기)** + Tailwind `md` 경계.
+
+### 다음
+- Ultra/Fold 실기기에서 메뉴 기본 닫힘·「메뉴」토글 확인.
+
+---
+
 ## 기록 규칙
 
 1. 날짜 헤더(`## YYYY-MM-DD — 제목`)로 추가.
