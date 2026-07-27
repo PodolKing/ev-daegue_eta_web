@@ -233,7 +233,7 @@ PC 전용으로 되돌릴 때:
 
 - API 응답 **camelCase**, `availableCount` **null ≠ 0**
 - 지도 **TMAP**, 마커 좌표는 **BE(DB)**, 목록 거리 **Haversine(BE)**
-- 반경 기본 **3km** / limit **50** (UI **1·3·5** km)
+- 반경 UI **1·3·5 km** / limit **50·100·200** (FE `limitForRadiusKm`, BE `MAX_LIMIT` — 상세는 2026-07-27 limit 조정 위치 블록)
 - OAuth는 **리다이렉트만** (팝업 없음). 지도 상태 복원은 `returnUrl` 쿼리
 
 ---
@@ -635,6 +635,87 @@ PC 전용으로 되돌릴 때:
 
 ### 다음
 - (없음 — 잠금 유지)
+
+---
+
+## 2026-07-27 — 반경 고정 줌 프리셋 (사용자 허락)
+
+### 한 일
+- `RadiusControl`: 반경 탭 시 `fitBounds` 제거 → 고정 줌 **1→16 / 3→15 / 5→14** + 중심 유지. 원 tint↑·stroke 얇게(잘림 허용).
+- `docs/important.md`·`tmap-sdk-lock.mdc` 스펙 갱신. `web/docs`·`api/docs` 동기화.
+
+### 결정
+- 원 전체 맞춤보다 “내 주변” 시야 유지. 프리셋은 체감 후 조정 가능.
+
+### 다음
+- 웹·폰에서 1/3/5 전환 시야·원 잘림 체감 확인. 필요 시 줌 숫자만 미세 조정.
+
+---
+
+## 2026-07-27 — stations DB 반경 조회 (ValidationError→CORS 오인)
+
+### 한 일
+- `stations/service.py`: bbox→Haversine→`stat_id` 집계→status LEFT JOIN→`availableCount` null≠0.
+- `controller`: NotImplemented 빈배열 제거. FE CORS 오류의 실원인은 500(필드명/`StationItem` 검증 실패).
+
+### 결정
+- `/stations`는 DB만 조회. 외부 status API는 요청 경로에 넣지 않음.
+
+### 다음
+- FE 마커. status 테이블 적재 확인(`availableCount` null이면 수집 파이프).
+
+---
+
+## 2026-07-27 — stations router/controller 역할 복구
+
+### 한 일
+- `router.py`에 controller 로직이 섞여 `ImportError: cannot import name 'router'` 발생 → FastAPI `APIRouter` 복구.
+- `controller.get_stations`를 near(`list_stations_near`)만 호출하도록 정리. 빈 `route_service.py` 제거.
+
+### 결정
+- 계약 유지: `GET /api/v1/stations?lat&lng&radiusKm&limit` (viewport mode 미도입).
+
+### 다음
+- uvicorn 기동·`/api/v1/stations` near 응답 확인.
+
+---
+
+## 2026-07-27 — stations 반경별 limit + FE 재조회 고정
+
+### 한 일
+- BE `MAX_LIMIT` 100→**150**, router `le=150`.
+- FE `limitForRadiusKm`: **1→50 / 3→100 / 5→150**. `AppShell`이 `radiusKm` 변경 시 재요청(요청 seq로 stale 응답 무시).
+- `stations_api.md` limit 상한·UI 반경 표기 갱신.
+
+### 결정
+- limit는 FE가 반경별로 넘김. BE는 상한만 150까지 허용.
+
+### 다음
+- 1/3/5 탭 시 Network에 `radius_km`·`limit` 변경 요청이 나가는지 확인.
+
+---
+
+## 2026-07-27 — stations limit 조정 위치 정리 + 5km 200건
+
+### 한 일
+- 5km limit **150→200**: FE `web/src/lib/api.ts` `limitForRadiusKm`, BE `service.MAX_LIMIT`, router `Query(le=MAX_LIMIT)`.
+- 아래 **limit/반경 상한이 어디서 정해지는지** 문서화.
+
+### 결정 — stations limit·반경 상한 (수정 시 같이 맞출 곳)
+
+| 역할 | 파일 | 내용 |
+|------|------|------|
+| **반경별 개수 (본체)** | `web/src/lib/api.ts` → `limitForRadiusKm` | UI 1/3/5 km → **50 / 100 / 200** |
+| **BE limit 상한** | `api/.../stations/service.py` → `MAX_LIMIT`, `clamp_limit()` | 요청 limit 최대값 |
+| **API 검증** | `api/.../stations/router.py` → `Query(..., le=MAX_LIMIT)` | FastAPI 422 방지 |
+| **기본값** | `service.DEFAULT_LIMIT`(50), `DEFAULT_RADIUS_KM`(3) | 쿼리 생략 시 |
+| **반경 상한** | `service.MAX_RADIUS_KM`(10), router `radius_km le=10` | UI는 1·3·5, API 직접 호출은 10까지 |
+| **전달만** | `controller.py` | 받은 `limit`을 `list_stations_near`에 전달 |
+
+5km 건수만 바꿀 때: **FE `limitForRadiusKm` + BE `MAX_LIMIT` ≥ 그 값 + router `le`**.
+
+### 다음
+- 5km 탭 시 `limit=200` 요청·응답 count 확인.
 
 ---
 

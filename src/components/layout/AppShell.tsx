@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IconRail } from "@/components/layout/IconRail";
 import { TopBar } from "@/components/layout/TopBar";
 import { MapView } from "@/components/map/MapView";
@@ -28,25 +28,7 @@ export function AppShell() {
 
   const coords = useLocationStore((s) => s.coords);
   const locateOnce = useLocationStore((s) => s.locateOnce);
-
-  const loadStations = useCallback(async () => {
-    const origin = coords ?? DAEGU_CENTER;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchStations({
-        lat: origin.lat,
-        lng: origin.lng,
-        radiusKm,
-      });
-      setStations(data.items ?? []);
-    } catch {
-      setStations([]);
-      setError("충전소 목록을 불러오지 못했습니다. API 서버를 확인하세요.");
-    } finally {
-      setLoading(false);
-    }
-  }, [radiusKm, coords, setStations, setLoading, setError]);
+  const stationsReqId = useRef(0);
 
   useEffect(() => {
     fetchHealth()
@@ -66,9 +48,39 @@ export function AppShell() {
     setCenter({ lat: coords.lat, lng: coords.lng });
   }, [coords, setCenter]);
 
+  // radius / 좌표 변경 시마다 재조회 (이전 응답이 덮어쓰지 않도록 seq)
   useEffect(() => {
-    void loadStations();
-  }, [loadStations]);
+    const origin = coords ?? DAEGU_CENTER;
+    const reqId = ++stationsReqId.current;
+    setLoading(true);
+    setError(null);
+
+    void fetchStations({
+      lat: origin.lat,
+      lng: origin.lng,
+      radiusKm,
+    })
+      .then((data) => {
+        if (reqId !== stationsReqId.current) return;
+        setStations(data.items ?? []);
+      })
+      .catch(() => {
+        if (reqId !== stationsReqId.current) return;
+        setStations([]);
+        setError("충전소 목록을 불러오지 못했습니다. API 서버를 확인하세요.");
+      })
+      .finally(() => {
+        if (reqId !== stationsReqId.current) return;
+        setLoading(false);
+      });
+  }, [
+    radiusKm,
+    coords?.lat,
+    coords?.lng,
+    setStations,
+    setLoading,
+    setError,
+  ]);
 
   // Touch / <md → rail closed by default. Crossing into desktop → open rail.
   // User can still toggle; only auto-sync when compact *mode* changes.
