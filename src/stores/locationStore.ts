@@ -44,7 +44,7 @@ type LocationState = {
 function geolocationErrorMessage(code?: number): string {
   switch (code) {
     case 1:
-      return "위치 권한이 꺼져 있습니다. 브라우저·OS 설정에서 허용해 주세요.";
+      return "위치 정보가 꺼져 있습니다. 브라우저·OS 설정에서 위치 접근을 허용해 주세요.";
     case 2:
       return "위치를 확인할 수 없습니다.";
     case 3:
@@ -87,6 +87,16 @@ export const useLocationStore = create<LocationState>((set, get) => ({
 
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       const error = "이 브라우저에서는 위치 정보를 지원하지 않습니다.";
+      set({ status: "error", error, follow: false });
+      return Promise.reject(new Error(error));
+    }
+
+    // Geolocation requires a secure context (HTTPS or localhost).
+    // Browser / W3C Geolocation API 정책 — TMAP 정책 아님.
+    // LAN http://192.168.x.x 등에서는 OS 프롬프트 없이 거절되는 경우가 많음.
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      const error =
+        "위치 정보는 HTTPS 또는 localhost에서만 사용할 수 있습니다. (브라우저 보안 정책 · TMAP 무관)";
       set({ status: "error", error, follow: false });
       return Promise.reject(new Error(error));
     }
