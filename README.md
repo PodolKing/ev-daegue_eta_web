@@ -14,7 +14,7 @@
 ## Highlights
 
 - **TMAP** 기반 지도 UI + BE stations API 연동 마커
-- 반경 **1 / 3 / 5 km** 선택, 직선 거리 정렬
+- 반경 **1 / 2 / 3 km** 선택, 직선 거리 정렬
 - 흰 배경 · Discord풍 레이아웃(아이콘 레일 · 목록 · 맵) — 지도 앱에 맞는 절제된 UI
 - 반응형(모바일·Fold 커버 폭 포함) 전제
 - 1개월 토이 범위: 외부 로그인 1종 · 포인트 잔액/충전/내역(진행 중)
@@ -58,7 +58,7 @@ Never commit real `.env` values. See `.env.example`.
 
 ## Current status
 
-- 완료: FE 셸/레이아웃, 반경(1/3/5km) UI, TMAP 플레이스홀더 맵, stations API 클라이언트 뼈대
+- 완료: FE 셸/레이아웃, 반경(1/2/3km) UI, TMAP 플레이스홀더 맵, stations API 클라이언트 뼈대
 - 진행 중: TMAP SDK 실연동, stations 실좌표 마커 표시
 - 예정: 로그인 1종 UI, 포인트 잔액/충전/내역 UI
 

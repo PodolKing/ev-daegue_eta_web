@@ -1,3 +1,4 @@
+import { getApiBase } from "@/lib/api";
 import { sanitizeReturnUrl } from "@/lib/auth/returnUrl";
 
 export type OAuthProvider = "kakao" | "google" | "naver";
@@ -12,11 +13,8 @@ export function startOAuthRedirect(
   returnUrl: string,
 ): void {
   const safe = sanitizeReturnUrl(returnUrl);
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
-    "http://localhost:8000";
   const q = new URLSearchParams({ returnUrl: safe });
-  const target = `${apiBase}/api/v1/auth/${provider}/login?${q.toString()}`;
+  const target = `${getApiBase()}/api/v1/auth/${provider}/login?${q.toString()}`;
   // TODO: window.location.assign(target) after BE login_start is implemented
   void target;
 }

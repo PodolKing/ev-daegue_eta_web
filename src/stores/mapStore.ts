@@ -26,7 +26,7 @@ type MapState = {
 export const useMapStore = create<MapState>((set) => ({
   center: DAEGU_CENTER,
   zoom: 14,
-  radiusKm: 3,
+  radiusKm: 1,
   stations: [],
   selectedId: null,
   loading: false,
