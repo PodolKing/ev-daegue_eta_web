@@ -51,7 +51,7 @@ export function RadiusControl() {
     try {
       // Stronger tint so radius change reads as coverage, not camera jump
       const fillOpacity =
-        radiusKm === 1 ? 0.22 : radiusKm === 2 ? 0.28 : 0.34;
+        radiusKm === 1 ? 0.05 : radiusKm === 2 ? 0.18 : 0.25;
 
       circleRef.current = new window.Tmapv2.Circle({
         center: centerLatLng,

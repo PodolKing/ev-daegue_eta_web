@@ -1,4 +1,4 @@
-import { API_BASE } from "@/lib/api";
+import { getApiBase } from "@/lib/api";
 
 export type TmapPlaceResult = {
   id: string;
@@ -21,7 +21,7 @@ export async function searchTmapPlaces(
   void _center;
 
   const params = new URLSearchParams({ keyword: q });
-  const res = await fetch(`${API_BASE}/api/v1/places/search?${params}`);
+  const res = await fetch(`${getApiBase()}/api/v1/places/search?${params}`);
   if (!res.ok) {
     throw new Error(`places search ${res.status}`);
   }
