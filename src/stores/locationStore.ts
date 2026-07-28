@@ -8,6 +8,9 @@ import type {
 /**
  * Shared user position for MapView, radius search origin, distance, future nav.
  * Camera center stays in mapStore — this store is “where the user is”, not “where the map looks”.
+ *
+ * Watching (GPS stream) ≠ follow (camera chase). Call startWatch / stopWatch from UI
+ * (현위치 추적 토글, 네비 시작 등) — setTestMode(false) must not auto-startWatch.
  */
 type LocationState = {
   coords: LatLng | null;
@@ -16,9 +19,11 @@ type LocationState = {
   source: LocationSource | null;
   status: LocationStatus;
   error: string | null;
-  /** When true, MapView may keep camera on coords (현위치 / future watch). */
+  /** When true, MapView may keep camera on coords (현위치 / watch). */
   follow: boolean;
   testMode: boolean;
+  isWatching: boolean;
+  watchId: number | null;
 
   setCoords: (c: LatLng | null) => void;
   setAccuracyM: (m: number | null) => void;
@@ -41,6 +46,19 @@ type LocationState = {
   clear: () => void;
 };
 
+const GPS_OPTIONS_ONCE: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 8000,
+  maximumAge: 0,
+};
+
+/** Watch: allow a short cache so ticks are less noisy than locateOnce. */
+const GPS_OPTIONS_WATCH: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 15000,
+  maximumAge: 2000,
+};
+
 function geolocationErrorMessage(code?: number): string {
   switch (code) {
     case 1:
@@ -54,6 +72,18 @@ function geolocationErrorMessage(code?: number): string {
   }
 }
 
+function geolocationUnavailableMessage(): string | null {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    return "이 브라우저에서는 위치 정보를 지원하지 않습니다.";
+  }
+  // Geolocation requires a secure context (HTTPS or localhost).
+  // Browser / W3C Geolocation API 정책 — TMAP 정책 아님.
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    return "위치 정보는 HTTPS 또는 localhost에서만 사용할 수 있습니다. (브라우저 보안 정책 · TMAP 무관)";
+  }
+  return null;
+}
+
 export const useLocationStore = create<LocationState>((set, get) => ({
   coords: null,
   accuracyM: null,
@@ -63,6 +93,8 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   error: null,
   follow: false,
   testMode: false,
+  isWatching: false,
+  watchId: null,
 
   setCoords: (coords) => set({ coords }),
   setAccuracyM: (accuracyM) => set({ accuracyM }),
@@ -71,7 +103,17 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   setStatus: (status) => set({ status }),
   setError: (error) => set({ error }),
   setFollow: (follow) => set({ follow }),
-  setTestMode: (testMode) => set({ testMode }),
+
+  /**
+   * Toggle fake-GPS only. Enabling stops real watch.
+   * Disabling does NOT startWatch — caller decides (battery off / permission / screen).
+   */
+  setTestMode: (enabled) => {
+    if (enabled) {
+      get().stopWatch();
+    }
+    set({ testMode: enabled });
+  },
 
   locateOnce: () => {
     if (get().testMode) {
@@ -85,20 +127,10 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       return Promise.resolve(existing);
     }
 
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      const error = "이 브라우저에서는 위치 정보를 지원하지 않습니다.";
-      set({ status: "error", error, follow: false });
-      return Promise.reject(new Error(error));
-    }
-
-    // Geolocation requires a secure context (HTTPS or localhost).
-    // Browser / W3C Geolocation API 정책 — TMAP 정책 아님.
-    // LAN http://192.168.x.x 등에서는 OS 프롬프트 없이 거절되는 경우가 많음.
-    if (typeof window !== "undefined" && !window.isSecureContext) {
-      const error =
-        "위치 정보는 HTTPS 또는 localhost에서만 사용할 수 있습니다. (브라우저 보안 정책 · TMAP 무관)";
-      set({ status: "error", error, follow: false });
-      return Promise.reject(new Error(error));
+    const unavailable = geolocationUnavailableMessage();
+    if (unavailable) {
+      set({ status: "error", error: unavailable, follow: false });
+      return Promise.reject(new Error(unavailable));
     }
 
     set({ status: "locating", error: null });
@@ -110,12 +142,14 @@ export const useLocationStore = create<LocationState>((set, get) => ({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
           };
+          // If watch already running, keep status "watching"
+          const status: LocationStatus = get().isWatching ? "watching" : "ready";
           set({
             coords,
             accuracyM: pos.coords.accuracy ?? null,
             headingDeg: pos.coords.heading ?? null,
             source: "gps",
-            status: "ready",
+            status,
             error: null,
           });
           resolve(coords);
@@ -125,24 +159,77 @@ export const useLocationStore = create<LocationState>((set, get) => ({
           set({ status: "error", error, follow: false });
           reject(new Error(error));
         },
-        {
-          enableHighAccuracy: true,
-          // Fail faster when OS/browser location is off (avoids long “hung” feel)
-          timeout: 8000,
-          maximumAge: 0,
-        },
+        GPS_OPTIONS_ONCE,
       );
     });
   },
 
   startWatch: () => {
-    // TODO: navigator.geolocation.watchPosition → set coords; status "watching"
-    set({ status: "watching", error: null });
+    if (get().testMode) return;
+    if (get().watchId != null) return;
+
+    const unavailable = geolocationUnavailableMessage();
+    if (unavailable) {
+      set({
+        status: "error",
+        error: unavailable,
+        follow: false,
+        isWatching: false,
+        watchId: null,
+      });
+      return;
+    }
+
+    set({ error: null, isWatching: true, status: "watching" });
+
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        // Drop callbacks after stopWatch / testMode
+        if (get().testMode || get().watchId !== id) return;
+
+        set({
+          coords: {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          },
+          accuracyM: pos.coords.accuracy ?? null,
+          headingDeg: pos.coords.heading ?? null,
+          source: "gps",
+          status: "watching",
+          error: null,
+          isWatching: true,
+        });
+      },
+      (err) => {
+        if (get().watchId !== id) return;
+        const error = geolocationErrorMessage(err?.code);
+        // Stop the broken watch; keep last coords if any
+        navigator.geolocation.clearWatch(id);
+        set({
+          status: "error",
+          error,
+          follow: false,
+          isWatching: false,
+          watchId: null,
+        });
+      },
+      GPS_OPTIONS_WATCH,
+    );
+
+    set({ watchId: id, isWatching: true, status: "watching", error: null });
   },
 
   stopWatch: () => {
-    const next = get().coords ? "ready" : "idle";
-    set({ status: next });
+    const id = get().watchId;
+    if (id != null && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.clearWatch(id);
+    }
+    const next: LocationStatus = get().coords ? "ready" : "idle";
+    set({
+      watchId: null,
+      isWatching: false,
+      status: next,
+    });
   },
 
   setTestCoords: (coords) => {
@@ -152,11 +239,13 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       source: "test",
       status: "ready",
       accuracyM: null,
+      headingDeg: null,
       error: null,
     });
   },
 
-  clear: () =>
+  clear: () => {
+    get().stopWatch();
     set({
       coords: null,
       accuracyM: null,
@@ -165,5 +254,9 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       status: "idle",
       error: null,
       follow: false,
-    }),
+      testMode: false,
+      isWatching: false,
+      watchId: null,
+    });
+  },
 }));

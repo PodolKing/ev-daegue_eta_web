@@ -37,7 +37,7 @@ function LoginPageContent() {
     "flex w-full items-center justify-center rounded-[var(--radius-pill)] px-4 py-3.5 text-[15px] font-semibold shadow-[var(--shadow-sm)]";
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[var(--bg)] px-4 py-10">
+    <div className="flex h-dvh flex-col overflow-y-auto bg-[var(--bg)] px-4 py-10">
       <div className="mx-auto w-full max-w-md">
         <Link
           href={returnUrl || DEFAULT_MAP_PATH}
@@ -113,7 +113,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-dvh items-center justify-center text-[13px] text-[var(--text-muted)]">
+        <div className="flex h-dvh items-center justify-center text-[13px] text-[var(--text-muted)]">
           로딩…
         </div>
       }
