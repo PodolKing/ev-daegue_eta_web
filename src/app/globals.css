@@ -39,6 +39,9 @@
 html,
 body {
   height: 100%;
+  /* Prefer map gestures over browser page zoom on mobile */
+  touch-action: manipulation;
+  overscroll-behavior: none;
 }
 
 body {
@@ -47,6 +50,12 @@ body {
   color: var(--text);
   font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* TMAP canvas: all pinches/pans go to the map, not the browser */
+#ev-tmap-map {
+  touch-action: none;
+  -ms-touch-action: none;
 }
 
 button,

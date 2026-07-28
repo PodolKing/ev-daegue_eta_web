@@ -7,6 +7,10 @@ export const FEATURES = {
   tmapPlaceSearch: true,
   /** 현위치 버튼 → geolocation + map center */
   moveToMyLocation: true,
+  /** GPS watchPosition — 기본 ON (AppShell에서 startWatch) */
+  locationWatch: true,
+  /** 시험주행: 지도 탭 → setTestCoords (fake GPS) */
+  drivingTestMode: true,
   /** BE stations 반경(Haversine) 필터 — UI 뼈대만 있는 동안 false */
   radiusFilter: false,
 } as const;

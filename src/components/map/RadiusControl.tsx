@@ -28,6 +28,7 @@ export function RadiusControl() {
   const setZoom = useMapStore((s) => s.setZoom);
   const setCenter = useMapStore((s) => s.setCenter);
   const coords = useLocationStore((s) => s.coords);
+  const testMode = useLocationStore((s) => s.testMode);
 
   const circleRef = useRef<any>(null);
   /** null = never user-picked; skip camera change on first map attach. */
@@ -37,6 +38,8 @@ export function RadiusControl() {
   useEffect(() => {
     if (typeof window === "undefined" || !window.Tmapv2 || !map) return;
 
+    // Origin: 현위치(coords) first, else map center. Coords move → redraw circle only
+    // (camera zoom stays 1/2/3 tap only — TMAP lock).
     const lat = coords?.lat ?? mapCenter.lat;
     const lng = coords?.lng ?? mapCenter.lng;
     if (lat == null || lng == null) return;
@@ -44,6 +47,11 @@ export function RadiusControl() {
     if (circleRef.current) {
       circleRef.current.setMap(null);
       circleRef.current = null;
+    }
+
+    // 시험주행: 원이 탭/클릭을 가로채는 TMAP 이슈 → 원 숨김 (반경 API는 그대로)
+    if (testMode) {
+      return;
     }
 
     const centerLatLng = new window.Tmapv2.LatLng(lat, lng);
@@ -61,10 +69,20 @@ export function RadiusControl() {
         strokeOpacity: 0.55,
         fillColor: "#3B82F6",
         fillOpacity,
+        clickable: false,
         map,
       });
 
-      // Only adjust camera when user taps 1/2/3 — NOT on first map paint
+      if (typeof circleRef.current.setOptions === "function") {
+        try {
+          circleRef.current.setOptions({ clickable: false });
+        } catch {
+          /* ignore */
+        }
+      }
+
+      // Only adjust camera when user taps 1/2/3 — NOT on first map paint,
+      // and NOT when only 현위치 (coords) moves.
       const shouldApplyZoom =
         userPickedRadiusRef.current &&
         lastAppliedRadiusRef.current !== radiusKm;
@@ -104,6 +122,7 @@ export function RadiusControl() {
     mapCenter.lng,
     radiusKm,
     map,
+    testMode,
     setZoom,
     setCenter,
   ]);

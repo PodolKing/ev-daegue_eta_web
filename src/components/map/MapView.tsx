@@ -48,6 +48,19 @@ function setTmapZoomControl(map: any, visible: boolean) {
 const TMAP_MAP_KEY =
   process.env.NEXT_PUBLIC_TMAP_MAP_KEY?.trim() ?? "";
 
+function CarIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden
+      fill="currentColor"
+    >
+      <path d="M5 11l1.45-4.35A2 2 0 0 1 8.36 5h7.28a2 2 0 0 1 1.91 1.65L19 11h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.05a2.5 2.5 0 0 1-4.9 0h-4.1a2.5 2.5 0 0 1-4.9 0H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1zm2.15-1h9.7l-.85-2.55a.5.5 0 0 0-.48-.35H8.48a.5.5 0 0 0-.48.35L7.15 10zM7.5 16a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm9 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
+    </svg>
+  );
+}
+
 export function MapView() {
   const mapRef = useRef<HTMLDivElement>(null);
 
@@ -66,8 +79,12 @@ export function MapView() {
   const coords = useLocationStore((s) => s.coords);
   const locationError = useLocationStore((s) => s.error);
   const locationStatus = useLocationStore((s) => s.status);
+  const follow = useLocationStore((s) => s.follow);
+  const testMode = useLocationStore((s) => s.testMode);
   const setFollow = useLocationStore((s) => s.setFollow);
   const locateOnce = useLocationStore((s) => s.locateOnce);
+  const startWatch = useLocationStore((s) => s.startWatch);
+  const setTestCoords = useLocationStore((s) => s.setTestCoords);
 
   const panMapTo = (lat: number, lng: number, zoom?: number) => {
     const map = mapInstanceRef.current;
@@ -80,6 +97,98 @@ export function MapView() {
     skipCenterSyncRef.current = true;
     setCenter({ lat, lng });
     if (zoom != null) setZoom(zoom);
+  };
+
+  /** TMAP LatLng: lat/lng may be methods or plain numbers. */
+  const readTmapLatLng = (
+    ll: unknown,
+  ): { lat: number; lng: number } | null => {
+    if (!ll || typeof ll !== "object") return null;
+    const o = ll as Record<string, unknown>;
+    const rawLat =
+      typeof o.lat === "function"
+        ? (o.lat as () => number)()
+        : typeof o.lat === "number"
+          ? o.lat
+          : typeof o._lat === "number"
+            ? o._lat
+            : null;
+    const rawLng =
+      typeof o.lng === "function"
+        ? (o.lng as () => number)()
+        : typeof o.lng === "number"
+          ? o.lng
+          : typeof o._lng === "number"
+            ? o._lng
+            : null;
+    if (
+      typeof rawLat !== "number" ||
+      typeof rawLng !== "number" ||
+      !Number.isFinite(rawLat) ||
+      !Number.isFinite(rawLng)
+    ) {
+      return null;
+    }
+    return { lat: rawLat, lng: rawLng };
+  };
+
+  const applyTestCoordsFromClient = (clientX: number, clientY: number) => {
+    if (!FEATURES.drivingTestMode) return;
+    if (!useLocationStore.getState().testMode) return;
+
+    const map = mapInstanceRef.current;
+    const el = mapRef.current;
+    if (!map || !el) return;
+
+    const rect = el.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    const tryApply = (ll: unknown) => {
+      const parsed = readTmapLatLng(ll);
+      if (parsed) {
+        setTestCoords(parsed);
+        return true;
+      }
+      return false;
+    };
+
+    if (typeof map.screenToReal === "function") {
+      try {
+        if (window.Tmapv2?.Point) {
+          if (tryApply(map.screenToReal(new window.Tmapv2.Point(x, y)))) {
+            return;
+          }
+        }
+        if (tryApply(map.screenToReal(x, y))) return;
+      } catch {
+        /* fall through */
+      }
+    }
+
+    try {
+      const bounds =
+        typeof map.getBounds === "function" ? map.getBounds() : null;
+      const sw =
+        bounds && typeof bounds.getSouthWest === "function"
+          ? bounds.getSouthWest()
+          : null;
+      const ne =
+        bounds && typeof bounds.getNorthEast === "function"
+          ? bounds.getNorthEast()
+          : null;
+      const swLL = readTmapLatLng(sw);
+      const neLL = readTmapLatLng(ne);
+      if (swLL && neLL && rect.width > 0 && rect.height > 0) {
+        const lng = swLL.lng + (neLL.lng - swLL.lng) * (x / rect.width);
+        const lat = neLL.lat - (neLL.lat - swLL.lat) * (y / rect.height);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          setTestCoords({ lat, lng });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
   };
 
   /**
@@ -279,6 +388,171 @@ export function MapView() {
   }, [coords, mapReady]);
 
   /**
+   * follow on: keep camera on coords (watch / 현위치). Drag sets follow false.
+   * Does not change zoom (RadiusControl camera lock untouched).
+   */
+  useEffect(() => {
+    if (!follow || !coords || !mapReady) return;
+    const map = mapInstanceRef.current;
+    if (!map || !window.Tmapv2?.LatLng) return;
+
+    skipCenterSyncRef.current = true;
+    map.setCenter(new window.Tmapv2.LatLng(coords.lat, coords.lng));
+    setCenter({ lat: coords.lat, lng: coords.lng });
+  }, [coords?.lat, coords?.lng, follow, mapReady, setCenter]);
+
+  /**
+   * Driving test pick: capture-phase on map div so Circle/Marker cannot swallow taps.
+   * Short single-finger tap / click → setTestCoords. Pinch/drag left to TMAP (no preventDefault).
+   */
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const el = mapRef.current;
+    if (!mapReady || !map || !el || !FEATURES.drivingTestMode) return;
+    if (!testMode) return;
+
+    const onMapSdkClick = (evt: { latLng?: unknown }) => {
+      const parsed = readTmapLatLng(evt?.latLng);
+      if (parsed) setTestCoords(parsed);
+    };
+
+    let attached: "map" | "event" | null = null;
+    if (typeof map.addListener === "function") {
+      map.addListener("click", onMapSdkClick);
+      attached = "map";
+    } else if (window.Tmapv2?.Event?.addListener) {
+      window.Tmapv2.Event.addListener(map, "click", onMapSdkClick);
+      attached = "event";
+    }
+
+    const TAP_MAX_MOVE_PX = 14;
+    const TAP_MAX_MS = 500;
+    let start: { x: number; y: number; t: number } | null = null;
+    let moved = false;
+    let multi = false;
+    let activePointers = 0;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      activePointers += 1;
+      if (activePointers > 1) {
+        multi = true;
+        start = null;
+        return;
+      }
+      multi = false;
+      moved = false;
+      start = { x: e.clientX, y: e.clientY, t: Date.now() };
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!start) return;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      if (dx * dx + dy * dy > TAP_MAX_MOVE_PX * TAP_MAX_MOVE_PX) {
+        moved = true;
+      }
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      const wasTap =
+        !!start &&
+        !multi &&
+        !moved &&
+        Date.now() - start.t <= TAP_MAX_MS;
+      if (wasTap) {
+        applyTestCoordsFromClient(e.clientX, e.clientY);
+      }
+      activePointers = Math.max(0, activePointers - 1);
+      if (activePointers === 0) {
+        start = null;
+        moved = false;
+        multi = false;
+      }
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        multi = true;
+        start = null;
+        return;
+      }
+      multi = false;
+      moved = false;
+      const t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY, t: Date.now() };
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        multi = true;
+        start = null;
+        return;
+      }
+      if (!start || multi) return;
+      const t = e.touches[0];
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      if (dx * dx + dy * dy > TAP_MAX_MOVE_PX * TAP_MAX_MOVE_PX) {
+        moved = true;
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      const wasTap =
+        !!start &&
+        !multi &&
+        !moved &&
+        Date.now() - start.t <= TAP_MAX_MS &&
+        e.changedTouches.length >= 1;
+      if (wasTap) {
+        const t = e.changedTouches[0];
+        applyTestCoordsFromClient(t.clientX, t.clientY);
+      }
+      start = null;
+      moved = false;
+      multi = false;
+    };
+
+    // Prefer PointerEvent (covers mouse + touch). Touch* only as legacy fallback.
+    // capture: true — before TMAP Circle/Marker can swallow the event.
+    const cap = { capture: true, passive: true } as const;
+    const usePointer = typeof window.PointerEvent !== "undefined";
+
+    if (usePointer) {
+      el.addEventListener("pointerdown", onPointerDown, cap);
+      el.addEventListener("pointermove", onPointerMove, cap);
+      el.addEventListener("pointerup", onPointerUp, cap);
+      el.addEventListener("pointercancel", onPointerUp, cap);
+    } else {
+      el.addEventListener("touchstart", onTouchStart, cap);
+      el.addEventListener("touchmove", onTouchMove, cap);
+      el.addEventListener("touchend", onTouchEnd, cap);
+    }
+
+    return () => {
+      if (attached === "map" && typeof map.removeListener === "function") {
+        map.removeListener("click", onMapSdkClick);
+      } else if (
+        attached === "event" &&
+        typeof window.Tmapv2?.Event?.removeListener === "function"
+      ) {
+        window.Tmapv2.Event.removeListener(map, "click", onMapSdkClick);
+      }
+      if (usePointer) {
+        el.removeEventListener("pointerdown", onPointerDown, true);
+        el.removeEventListener("pointermove", onPointerMove, true);
+        el.removeEventListener("pointerup", onPointerUp, true);
+        el.removeEventListener("pointercancel", onPointerUp, true);
+      } else {
+        el.removeEventListener("touchstart", onTouchStart, true);
+        el.removeEventListener("touchmove", onTouchMove, true);
+        el.removeEventListener("touchend", onTouchEnd, true);
+      }
+    };
+  }, [mapReady, testMode, setTestCoords]);
+
+  /**
    * External center changes (search / bootstrap / URL) → TMAP camera.
    * Skips when we already moved the map (dragend / 현위치).
    */
@@ -320,6 +594,32 @@ export function MapView() {
       });
   };
 
+  const handleToggleTestDrive = () => {
+    if (!FEATURES.drivingTestMode) return;
+    const s = useLocationStore.getState();
+    if (s.testMode) {
+      s.setTestMode(false);
+      // 시험주행 OFF → 기본 GPS 추적 재개
+      if (FEATURES.locationWatch) {
+        startWatch();
+        setFollow(true);
+      }
+      return;
+    }
+    s.setTestMode(true);
+    s.setFollow(false);
+    const seed =
+      s.coords ??
+      ({
+        lat: useMapStore.getState().center.lat,
+        lng: useMapStore.getState().center.lng,
+      } as const);
+    useLocationStore.getState().setTestCoords({
+      lat: seed.lat,
+      lng: seed.lng,
+    });
+  };
+
   return (
     <div className="relative z-[15] h-full min-h-0 w-full overflow-hidden">
       {/* Trap TMAP's internal z-index so it cannot cover FABs/search */}
@@ -330,6 +630,15 @@ export function MapView() {
 
       {/* UI chrome — sibling stacking context above the map trap */}
       <div className="pointer-events-none absolute inset-0 z-10">
+        {FEATURES.drivingTestMode && testMode ? (
+          <div
+            className="pointer-events-none absolute inset-x-3 top-[4.75rem] z-[2] mx-auto max-w-[min(100%,20rem)] rounded-[var(--radius-lg)] border border-amber-200 bg-amber-50/90 px-2.5 py-1 text-center text-[11px] text-amber-900 shadow-[var(--shadow-sm)] md:left-4 md:right-auto md:mx-0"
+            role="status"
+          >
+            시험주행: 탭/클릭으로 위치 · 드래그·핀치로 지도 (반경 원은 잠시 숨김)
+          </div>
+        ) : null}
+
         {mapError ? (
           <div
             className="pointer-events-auto absolute inset-x-3 top-[4.75rem] z-20 max-w-[min(100%,28rem)] rounded-[var(--radius-lg)] border border-[var(--border)] bg-white/95 px-3 py-2 text-[12px] text-[var(--danger)] shadow-[var(--shadow-sm)] md:left-4 md:right-auto"
@@ -345,6 +654,7 @@ export function MapView() {
             absolute
             inset-x-0
             top-[4.75rem]
+            z-[1]
             flex
             justify-start
             px-3
@@ -356,7 +666,9 @@ export function MapView() {
             sm:px-0
           "
         >
-          <MapSearchBar />
+          <div className="pointer-events-auto w-full">
+            <MapSearchBar />
+          </div>
         </div>
 
         {/* flex-col-reverse: anchor at sheet top, grow upward so error banner stays visible */}
@@ -366,6 +678,7 @@ export function MapView() {
             absolute
             bottom-[calc(42dvh+0.75rem)]
             left-3
+            z-[1]
             flex
             flex-col-reverse
             items-start
@@ -376,45 +689,101 @@ export function MapView() {
         >
           <RadiusControl />
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={handleMoveToMyLocation}
-              disabled={
-                !FEATURES.moveToMyLocation || locationStatus === "locating"
-              }
-              aria-label="현위치로 이동"
-              title={locationError ?? "현위치로 이동"}
-              className="
-                flex
-                h-10
-                w-10
-                items-center
-                justify-center
-                rounded-full
-                border
-                bg-white
-                shadow
-                touch-manipulation
-                disabled:opacity-60
-              "
-            >
-              {locationStatus === "locating" ? "…" : "◎"}
-            </button>
-
-            {!FEATURES.moveToMyLocation && (
-              <span
+          <div className="flex flex-col items-start gap-2">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={handleMoveToMyLocation}
+                disabled={
+                  !FEATURES.moveToMyLocation || locationStatus === "locating"
+                }
+                aria-label="현위치로 이동"
+                title={locationError ?? "현위치로 이동"}
                 className="
-                  absolute
-                  -bottom-1
-                  left-1/2
-                  -translate-x-1/2
-                  translate-y-full
+                  flex
+                  h-10
+                  w-10
+                  items-center
+                  justify-center
+                  rounded-full
+                  border
+                  bg-white
+                  shadow
+                  touch-manipulation
+                  disabled:opacity-60
                 "
               >
-                <UnimplementedBadge />
-              </span>
-            )}
+                {locationStatus === "locating" ? "…" : "◎"}
+              </button>
+
+              {!FEATURES.moveToMyLocation && (
+                <span
+                  className="
+                    absolute
+                    -bottom-1
+                    left-1/2
+                    -translate-x-1/2
+                    translate-y-full
+                  "
+                >
+                  <UnimplementedBadge />
+                </span>
+              )}
+            </div>
+
+            {FEATURES.drivingTestMode ? (
+              <div className="group relative">
+                <button
+                  type="button"
+                  onClick={handleToggleTestDrive}
+                  aria-label={testMode ? "시험주행 끄기" : "시험주행 켜기"}
+                  aria-pressed={testMode}
+                  title="시험주행"
+                  className={[
+                    "flex h-10 w-10 items-center justify-center rounded-full border shadow touch-manipulation transition-colors",
+                    testMode
+                      ? "border-amber-600 bg-amber-500 text-white"
+                      : "border-[var(--border)] bg-white text-[var(--text-secondary)]",
+                  ].join(" ")}
+                >
+                  {testMode ? (
+                    <span className="text-[10px] font-bold tracking-wide">
+                      ON
+                    </span>
+                  ) : (
+                    <CarIcon className="h-5 w-5" />
+                  )}
+                </button>
+                <span
+                  className="
+                    pointer-events-none
+                    absolute
+                    left-full
+                    top-1/2
+                    z-10
+                    ml-2
+                    -translate-y-1/2
+                    whitespace-nowrap
+                    rounded-[var(--radius-pill)]
+                    border
+                    border-[var(--border)]
+                    bg-white
+                    px-2
+                    py-1
+                    text-[11px]
+                    font-medium
+                    text-[var(--text-secondary)]
+                    shadow-[var(--shadow-sm)]
+                    opacity-0
+                    transition-opacity
+                    group-hover:opacity-100
+                    group-focus-within:opacity-100
+                  "
+                >
+                  시험주행
+                </span>
+              </div>
+            ) : null}
           </div>
 
           {FEATURES.moveToMyLocation && locationError ? (
@@ -456,6 +825,7 @@ export function MapView() {
             absolute
             bottom-[calc(42dvh+0.75rem)]
             right-3
+            z-[1]
             max-w-[calc(100%-6.5rem)]
             md:bottom-4
             md:right-4
