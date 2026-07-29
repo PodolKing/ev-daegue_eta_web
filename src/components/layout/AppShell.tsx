@@ -192,7 +192,6 @@ export function AppShell() {
   const sheetDragRef = useRef<{ startY: number; decided: boolean } | null>(null);
 
   const onHandlePointerDown = useCallback((e: React.PointerEvent) => {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     sheetDragRef.current = { startY: e.clientY, decided: false };
   }, []);
 
