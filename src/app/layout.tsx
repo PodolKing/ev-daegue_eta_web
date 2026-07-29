@@ -1,17 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope, Plus_Jakarta_Sans } from "next/font/google";
+import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
-});
-
-const jakarta = Plus_Jakarta_Sans({
+const notoSansKr = Noto_Sans_KR({
   variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -34,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${manrope.variable} ${jakarta.variable} h-full`}>
+    <html lang="ko" className={`${notoSansKr.variable} h-full`}>
       <body className="h-full overflow-hidden antialiased">{children}</body>
     </html>
   );

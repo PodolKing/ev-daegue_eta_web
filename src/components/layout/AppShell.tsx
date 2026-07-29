@@ -47,6 +47,8 @@ export function AppShell() {
   const setStations = useMapStore((s) => s.setStations);
   const setLoading = useMapStore((s) => s.setLoading);
   const setError = useMapStore((s) => s.setError);
+  const mobileListOpen = useMapStore((s) => s.mobileListOpen);
+  const setMobileListOpen = useMapStore((s) => s.setMobileListOpen);
 
   const coords = useLocationStore((s) => s.coords);
   const locateOnce = useLocationStore((s) => s.locateOnce);
@@ -192,7 +194,7 @@ export function AppShell() {
     if (!map || typeof map.resize !== "function") return;
     const id = window.setTimeout(() => map.resize(), 220);
     return () => window.clearTimeout(id);
-  }, [railOpen, listPanelOpen]);
+  }, [railOpen, listPanelOpen, mobileListOpen]);
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-[var(--bg)]">
@@ -217,16 +219,26 @@ export function AppShell() {
         <StationList />
       </div>
 
-      <main className="relative min-w-0 flex-1">
+      <main
+        className="relative min-w-0 flex-1"
+        style={
+          {
+            // MapView FAB/detail offset — open sheet 42dvh; collapsed peek ~2.75rem
+            ["--map-sheet-offset" as string]: mobileListOpen
+              ? "42dvh"
+              : "2.75rem",
+          }
+        }
+      >
         <TopBar apiOnline={apiOnline} />
         <MapView />
 
-        {/* Compact: toggle icon rail — same band as 반경/현위치 FAB (sheet 바로 위·우측) */}
+        {/* Compact: toggle icon rail — sits above sheet (or peek when collapsed) */}
         {isCompact && (
           <button
             type="button"
             onClick={() => setRailOpen((v) => !v)}
-            className="absolute bottom-[calc(42dvh+0.75rem)] right-3 z-[45] rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)] touch-manipulation"
+            className="absolute bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)] right-3 z-[45] rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)] touch-manipulation md:bottom-4"
             aria-label={railOpen ? "메뉴 닫기" : "메뉴 열기"}
             aria-expanded={railOpen}
           >
@@ -245,11 +257,29 @@ export function AppShell() {
           {listPanelOpen ? "‹" : "›"}
         </button>
 
-        {/* Mobile bottom sheet — station list (fixed 42dvh; FABs sit just above) */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 md:hidden">
+        {/* Mobile bottom sheet — collapsible */}
+        <div
+          className={[
+            "pointer-events-none absolute inset-x-0 bottom-0 z-30 transition-transform duration-200 md:hidden",
+            mobileListOpen
+              ? "translate-y-0"
+              : "translate-y-[calc(100%-2.75rem)]",
+          ].join(" ")}
+        >
           <div className="pointer-events-auto max-h-[42dvh] overflow-hidden rounded-t-[20px] border border-[var(--border)] bg-white shadow-[var(--shadow-md)]">
-            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--border-strong)]" />
-            <div className="h-[calc(42dvh-12px)]">
+            <button
+              type="button"
+              onClick={() => setMobileListOpen(!mobileListOpen)}
+              className="flex w-full flex-col items-center pt-2 pb-1 touch-manipulation"
+              aria-label={mobileListOpen ? "목록 접기" : "목록 펼치기"}
+              aria-expanded={mobileListOpen}
+            >
+              <span className="h-1 w-10 rounded-full bg-[var(--border-strong)]" />
+              <span className="mt-1 text-[11px] font-medium text-[var(--text-muted)]">
+                {mobileListOpen ? "목록 접기" : "목록"}
+              </span>
+            </button>
+            <div className="h-[calc(42dvh-2.75rem)]">
               <StationList />
             </div>
           </div>

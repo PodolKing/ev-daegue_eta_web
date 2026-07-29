@@ -10,6 +10,7 @@ import { UnimplementedBadge } from "@/components/ui/Unimplemented";
 import { FEATURES } from "@/lib/features";
 import { ensureTmapSdk, isTmapSdkReady } from "@/lib/tmap/loadSdk";
 import StationMarkers from "@/components/map/StationMarkers";
+import { SlowChargeFilterFab } from "@/components/map/SlowChargeFilterFab";
 
 declare global {
   interface Window {
@@ -676,7 +677,7 @@ export function MapView() {
           className="
             pointer-events-auto
             absolute
-            bottom-[calc(42dvh+0.75rem)]
+            bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)]
             left-3
             z-[1]
             flex
@@ -731,59 +732,62 @@ export function MapView() {
               )}
             </div>
 
-            {FEATURES.drivingTestMode ? (
-              <div className="group relative">
-                <button
-                  type="button"
-                  onClick={handleToggleTestDrive}
-                  aria-label={testMode ? "시험주행 끄기" : "시험주행 켜기"}
-                  aria-pressed={testMode}
-                  title="시험주행"
-                  className={[
-                    "flex h-10 w-10 items-center justify-center rounded-full border shadow touch-manipulation transition-colors",
-                    testMode
-                      ? "border-amber-600 bg-amber-500 text-white"
-                      : "border-[var(--border)] bg-white text-[var(--text-secondary)]",
-                  ].join(" ")}
-                >
-                  {testMode ? (
-                    <span className="text-[10px] font-bold tracking-wide">
-                      ON
-                    </span>
-                  ) : (
-                    <CarIcon className="h-5 w-5" />
-                  )}
-                </button>
-                <span
-                  className="
-                    pointer-events-none
-                    absolute
-                    left-full
-                    top-1/2
-                    z-10
-                    ml-2
-                    -translate-y-1/2
-                    whitespace-nowrap
-                    rounded-[var(--radius-pill)]
-                    border
-                    border-[var(--border)]
-                    bg-white
-                    px-2
-                    py-1
-                    text-[11px]
-                    font-medium
-                    text-[var(--text-secondary)]
-                    shadow-[var(--shadow-sm)]
-                    opacity-0
-                    transition-opacity
-                    group-hover:opacity-100
-                    group-focus-within:opacity-100
-                  "
-                >
-                  시험주행
-                </span>
-              </div>
-            ) : null}
+            <div className="flex items-center gap-2">
+              <SlowChargeFilterFab />
+              {FEATURES.drivingTestMode ? (
+                <div className="group relative">
+                  <button
+                    type="button"
+                    onClick={handleToggleTestDrive}
+                    aria-label={testMode ? "시험주행 끄기" : "시험주행 켜기"}
+                    aria-pressed={testMode}
+                    title="시험주행"
+                    className={[
+                      "flex h-10 w-10 items-center justify-center rounded-full border shadow touch-manipulation transition-colors",
+                      testMode
+                        ? "border-amber-600 bg-amber-500 text-white"
+                        : "border-[var(--border)] bg-white text-[var(--text-secondary)]",
+                    ].join(" ")}
+                  >
+                    {testMode ? (
+                      <span className="text-[10px] font-bold tracking-wide">
+                        ON
+                      </span>
+                    ) : (
+                      <CarIcon className="h-5 w-5" />
+                    )}
+                  </button>
+                  <span
+                    className="
+                      pointer-events-none
+                      absolute
+                      left-full
+                      top-1/2
+                      z-10
+                      ml-2
+                      -translate-y-1/2
+                      whitespace-nowrap
+                      rounded-[var(--radius-pill)]
+                      border
+                      border-[var(--border)]
+                      bg-white
+                      px-2
+                      py-1
+                      text-[11px]
+                      font-medium
+                      text-[var(--text-secondary)]
+                      shadow-[var(--shadow-sm)]
+                      opacity-0
+                      transition-opacity
+                      group-hover:opacity-100
+                      group-focus-within:opacity-100
+                    "
+                  >
+                    시험주행
+                  </span>
+                </div>
+              ) : null}
+            </div>
           </div>
 
           {FEATURES.moveToMyLocation && locationError ? (
@@ -823,7 +827,7 @@ export function MapView() {
           className="
             pointer-events-auto
             absolute
-            bottom-[calc(42dvh+0.75rem)]
+            bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)]
             right-3
             z-[1]
             max-w-[calc(100%-6.5rem)]

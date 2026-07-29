@@ -57,7 +57,8 @@ export function TopBar({ apiOnline }: { apiOnline: boolean | null }) {
         </div>
       </div>
 
-      <div className="pointer-events-auto flex items-center gap-2 animate-fade-up [animation-delay:60ms]">
+      {/* Leave room for TMAP zoomControl (shown from 700px width). */}
+      <div className="pointer-events-auto flex items-center gap-2 animate-fade-up [animation-delay:60ms] min-[700px]:mr-14">
         {user ? (
           <div className="flex items-center gap-2 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white/90 px-3 py-1.5 shadow-[var(--shadow-sm)] backdrop-blur-md">
             <span className="text-[12px] text-[var(--text-secondary)]">{user.nickname}</span>
