@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
+import { DisableBrowserZoom } from "@/components/layout/DisableBrowserZoom";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
@@ -14,10 +15,11 @@ export const metadata: Metadata = {
   description: "도착했을 때 충전할 수 있는 곳을 찾는 대구 EV 세이프차지",
 };
 
-/** Map app: block browser page pinch-zoom so gestures go to TMAP. */
+/** Map / auth app: limit browser page zoom (Android). iOS may still allow pinch (a11y). */
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  minimumScale: 1,
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
@@ -30,7 +32,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className={`${notoSansKr.variable} h-full`}>
-      <body className="h-full overflow-hidden antialiased">{children}</body>
+      <body className="h-full overflow-hidden antialiased">
+        <DisableBrowserZoom />
+        {children}
+      </body>
     </html>
   );
 }

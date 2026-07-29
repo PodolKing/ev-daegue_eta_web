@@ -79,7 +79,7 @@ export const useMapStore = create<MapState>((set, get) => ({
       return;
     }
 
-    const { stations, map } = get();
+    const { stations, map, mobileListOpen } = get();
     const station = stations.find((s) => s.stationId === id);
 
     useLocationStore.getState().setFollow(false);
@@ -87,17 +87,18 @@ export const useMapStore = create<MapState>((set, get) => ({
     set({
       selectedId: id,
       mobileListOpen: false,
-      ...(station
-        ? { center: { lat: station.lat, lng: station.lng } }
-        : {}),
+      ...(station ? { center: { lat: station.lat, lng: station.lng } } : {}),
     });
 
     if (station) {
       panMapTo(station.lat, station.lng, map);
-      window.setTimeout(() => {
-        const m = get().map;
-        if (m && typeof m.resize === "function") m.resize();
-      }, 220);
+      // resize only when mobile sheet was open (layout actually shifted)
+      if (mobileListOpen) {
+        window.setTimeout(() => {
+          const m = get().map;
+          if (m && typeof m.resize === "function") m.resize();
+        }, 220);
+      }
     }
   },
   setLoading: (loading) => set({ loading }),

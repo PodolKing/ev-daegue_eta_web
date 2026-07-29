@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { IconRail } from "@/components/layout/IconRail";
 import { TopBar } from "@/components/layout/TopBar";
 import { MapView } from "@/components/map/MapView";
@@ -188,6 +188,27 @@ export function AppShell() {
     setRailOpen(!isCompact);
   }, [isCompact]);
 
+  // Swipe gesture on bottom sheet handle
+  const sheetDragRef = useRef<{ startY: number; decided: boolean } | null>(null);
+
+  const onHandlePointerDown = useCallback((e: React.PointerEvent) => {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    sheetDragRef.current = { startY: e.clientY, decided: false };
+  }, []);
+
+  const onHandlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!sheetDragRef.current || sheetDragRef.current.decided) return;
+    const dy = e.clientY - sheetDragRef.current.startY;
+    if (Math.abs(dy) < 20) return;
+    sheetDragRef.current.decided = true;
+    // drag up (negative dy) → open; drag down → close
+    setMobileListOpen(dy < 0);
+  }, [setMobileListOpen]);
+
+  const onHandlePointerUp = useCallback(() => {
+    sheetDragRef.current = null;
+  }, []);
+
   // Rail width change → TMAP canvas resize
   useEffect(() => {
     const map = useMapStore.getState().map;
@@ -299,6 +320,10 @@ export function AppShell() {
             <button
               type="button"
               onClick={() => setMobileListOpen(!mobileListOpen)}
+              onPointerDown={onHandlePointerDown}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+              onPointerCancel={onHandlePointerUp}
               className="flex w-full flex-col items-center pt-2 pb-1 touch-manipulation"
               aria-label={mobileListOpen ? "목록 접기" : "목록 펼치기"}
               aria-expanded={mobileListOpen}

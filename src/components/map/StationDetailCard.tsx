@@ -11,6 +11,7 @@ export function StationDetailCard() {
   const stations = useMapStore((s) => s.stations);
   const selectedId = useMapStore((s) => s.selectedId);
   const setSelectedId = useMapStore((s) => s.setSelectedId);
+  const setMobileListOpen = useMapStore((s) => s.setMobileListOpen);
 
   const station = stations.find((s) => s.stationId === selectedId);
   if (!station) return null;
@@ -37,7 +38,10 @@ export function StationDetailCard() {
         </div>
         <button
           type="button"
-          onClick={() => setSelectedId(null)}
+          onClick={() => {
+            setSelectedId(null);
+            setMobileListOpen(true);
+          }}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] hover:text-[var(--text)]"
           aria-label="닫기"
         >
