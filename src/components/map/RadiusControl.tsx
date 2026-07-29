@@ -49,8 +49,11 @@ export function RadiusControl() {
       circleRef.current = null;
     }
 
-    // 시험주행: 원이 탭/클릭을 가로채는 TMAP 이슈 → 원 숨김 (반경 API는 그대로)
-    if (testMode) {
+    // 시험주행 or 모바일: 원이 탭/클릭을 가로채는 TMAP 이슈 → 원 숨김 (반경 API는 그대로)
+    const isMobile =
+      typeof window !== "undefined" &&
+      !window.matchMedia("(min-width: 768px)").matches;
+    if (testMode || isMobile) {
       return;
     }
 

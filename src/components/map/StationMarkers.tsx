@@ -12,9 +12,8 @@ import { useMapStore } from "@/stores/mapStore";
 
 const MAP_ELEMENT_ID = "ev-tmap-map";
 /** Tap must land within this many meters of a station (mobile hit slop). */
-const HIT_MAX_M = 55;
+const HIT_MAX_M = 80;
 const TAP_MAX_MOVE_PX = 14;
-const TAP_MAX_MS = 500;
 
 declare global {
   interface Window {
@@ -38,11 +37,17 @@ function formatLabel(
   return `${a}/${t}`;
 }
 
+const _iconUrlCache = new Map<string, string>();
+
 function buildCircleIconUrl(
   label: string,
   fill: string,
   selected: boolean,
 ): string {
+  const cacheKey = `${label}|${fill}|${selected ? 1 : 0}`;
+  const cached = _iconUrlCache.get(cacheKey);
+  if (cached) return cached;
+
   const size = 48;
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -68,7 +73,9 @@ function buildCircleIconUrl(
   ctx.textBaseline = "middle";
   ctx.fillText(label, cx, cy + 0.5);
 
-  return canvas.toDataURL("image/png");
+  const url = canvas.toDataURL("image/png");
+  _iconUrlCache.set(cacheKey, url);
+  return url;
 }
 
 function markerIcon(
@@ -222,6 +229,7 @@ export default function StationMarkers() {
   const markersRef = useRef<Map<string, any>>(new Map());
   const stationsRef = useRef(visible);
   stationsRef.current = visible;
+  const prevSelectedIdRef = useRef<string | null>(null);
 
   // Create / refresh markers when map or filtered list changes (not on select).
   useEffect(() => {
@@ -289,17 +297,22 @@ export default function StationMarkers() {
     };
   }, [map, visible]);
 
-  // Selection styling only — avoid full marker teardown on every tap.
+  // Selection styling only — update previous + new marker (2 markers max, not full sweep).
   useEffect(() => {
     if (!map || !window.Tmapv2) return;
-    stationsRef.current.forEach((station) => {
-      const marker = markersRef.current.get(station.stationId);
-      if (!marker || typeof marker.setIcon !== "function") return;
-      const icon = markerIcon(
-        station,
-        station.stationId === selectedId,
-        includeSlow,
-      );
+
+    const prevId = prevSelectedIdRef.current;
+    prevSelectedIdRef.current = selectedId;
+
+    const idsToRefresh = new Set<string>();
+    if (prevId) idsToRefresh.add(prevId);
+    if (selectedId) idsToRefresh.add(selectedId);
+
+    idsToRefresh.forEach((id) => {
+      const station = stationsRef.current.find((s) => s.stationId === id);
+      const marker = markersRef.current.get(id);
+      if (!station || !marker || typeof marker.setIcon !== "function") return;
+      const icon = markerIcon(station, id === selectedId, includeSlow);
       if (icon) marker.setIcon(icon);
     });
   }, [map, selectedId, includeSlow]);
@@ -313,15 +326,11 @@ export default function StationMarkers() {
     const el = document.getElementById(MAP_ELEMENT_ID);
     if (!el) return;
 
-    let start: { x: number; y: number; t: number } | null = null;
-    let moved = false;
-    let multi = false;
+    let start: { x: number; y: number; pending: boolean } | null = null;
     let activePointers = 0;
 
     const trySelectAt = (clientX: number, clientY: number) => {
-      // 시험주행 탭 픽과 충돌 방지
       if (useLocationStore.getState().testMode) return;
-
       const ll = clientToLatLng(map, el, clientX, clientY);
       if (!ll) return;
       const hit = nearestStation(stationsRef.current, ll.lat, ll.lng, HIT_MAX_M);
@@ -334,39 +343,30 @@ export default function StationMarkers() {
       if (e.pointerType === "mouse" && e.button !== 0) return;
       activePointers += 1;
       if (activePointers > 1) {
-        multi = true;
+        // multi-touch (pinch) — cancel pending
         start = null;
         return;
       }
-      multi = false;
-      moved = false;
-      start = { x: e.clientX, y: e.clientY, t: Date.now() };
+      start = { x: e.clientX, y: e.clientY, pending: true };
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      if (!start) return;
+      if (!start || !start.pending) return;
       const dx = e.clientX - start.x;
       const dy = e.clientY - start.y;
       if (dx * dx + dy * dy > TAP_MAX_MOVE_PX * TAP_MAX_MOVE_PX) {
-        moved = true;
+        // finger moved → not a tap, cancel
+        start.pending = false;
       }
     };
 
     const onPointerUp = (e: PointerEvent) => {
-      const wasTap =
-        !!start &&
-        !multi &&
-        !moved &&
-        Date.now() - start.t <= TAP_MAX_MS;
-      if (wasTap) {
+      if (start?.pending) {
+        // fire immediately on lift — no 300ms delay
         trySelectAt(e.clientX, e.clientY);
       }
       activePointers = Math.max(0, activePointers - 1);
-      if (activePointers === 0) {
-        start = null;
-        moved = false;
-        multi = false;
-      }
+      if (activePointers === 0) start = null;
     };
 
     const cap: AddEventListenerOptions = { capture: true, passive: true };
