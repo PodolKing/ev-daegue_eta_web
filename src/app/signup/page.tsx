@@ -1,26 +1,103 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
+import AddressSearchModal from "@/components/auth/AddressSearchModal";
+import { getApiBase } from "@/lib/api";
 import { DEFAULT_MAP_PATH, sanitizeReturnUrl } from "@/lib/auth/returnUrl";
 
+function formatApiError(detail: unknown, fallback: string): string {
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0] as { msg?: string };
+    if (typeof first?.msg === "string") return first.msg;
+  }
+  return fallback;
+}
+
 function SignupPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = sanitizeReturnUrl(searchParams.get("returnUrl"));
   const loginHref = `/login?returnUrl=${encodeURIComponent(returnUrl)}`;
 
   const [address, setAddress] = useState("");
   const [addressDetail, setAddressDetail] = useState("");
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLng, setUserLng] = useState<number | null>(null);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*[^A-Za-z0-9]).{8,}$/;
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // TODO: POST /api/v1/auth/register — address, addressDetail 포함
+    if (loading) return;
+
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const nickname = String(fd.get("nickname") ?? "").trim();
+    const email = String(fd.get("email") ?? "").trim();
+    const password = String(fd.get("password") ?? "");
+    const passwordConfirm = String(fd.get("passwordConfirm") ?? "");
+
+    if (!nickname || !email || !password) {
+      setFormError("필수 항목을 입력해 주세요");
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setFormError("비밀번호가 일치하지 않습니다");
+      return;
+    }
+    if (!PASSWORD_RULE.test(password)) {
+      setFormError("비밀번호는 영문과 특수문자를 포함해 8자 이상이어야 합니다");
+      return;
+    }
+
+    setLoading(true);
+    setFormError(null);
+
+    try {
+      // 1차: 이메일을 userId로 전달 (email 컬럼 분리 전).
+      // address / detailAddress / userLat / userLng 는 optional (BE 스키마 확장 예정 포함)
+      const response = await fetch(`${getApiBase()}/api/v1/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: email,
+          password,
+          nickname,
+          address: address.trim() || null,
+          detailAddress: addressDetail.trim() || null,
+          userLat,
+          userLng,
+        }),
+      });
+
+      if (!response.ok) {
+        let detail: unknown;
+        try {
+          const errBody = (await response.json()) as { detail?: unknown };
+          detail = errBody.detail;
+        } catch {
+          detail = undefined;
+        }
+        throw new Error(formatApiError(detail, "회원가입에 실패했습니다"));
+      }
+
+      router.push(loginHref);
+    } catch (err) {
+      setFormError(
+        err instanceof Error ? err.message : "회원가입에 실패했습니다",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const openAddressSearch = () => {
-    // TODO: Daum Postcode (다음 주소) 팝업 연동 → setAddress(roadAddress)
-  };
+  const openAddressSearch = () => setIsAddressModalOpen(true);
 
   const fieldClass =
     "mt-1.5 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3 py-2.5 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]";
@@ -81,8 +158,10 @@ function SignupPageContent() {
               autoComplete="new-password"
               required
               minLength={8}
+              pattern="(?=.*[A-Za-z])(?=.*[^A-Za-z0-9]).{8,}"
+              title="영문과 특수문자를 포함해 8자 이상"
               className={fieldClass}
-              placeholder="8자 이상"
+              placeholder="영문+특수문자 포함 8자 이상"
             />
           </label>
 
@@ -104,7 +183,7 @@ function SignupPageContent() {
               주소
             </span>
             <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-              다음 주소 검색 연동 예정
+              주소 검색으로 선택 · 상세는 아래 입력
             </p>
             <div className="mt-1.5 flex gap-2">
               <input
@@ -113,9 +192,8 @@ function SignupPageContent() {
                 readOnly
                 value={address}
                 onClick={openAddressSearch}
-                onChange={(e) => setAddress(e.target.value)}
                 className={`${readOnlyFieldClass} min-w-0 flex-1`}
-                placeholder="주소 검색을 눌러 입력"
+                placeholder="주소 검색을 눌러 입력 (선택)"
                 autoComplete="street-address"
               />
               <button
@@ -141,11 +219,21 @@ function SignupPageContent() {
             />
           </label>
 
+          {formError ? (
+            <p
+              role="alert"
+              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--warning-soft)] px-3 py-2.5 text-[13px] text-[var(--warning)]"
+            >
+              {formError}
+            </p>
+          ) : null}
+
           <button
             type="submit"
-            className="mt-2 flex w-full items-center justify-center rounded-[var(--radius-pill)] bg-[var(--text)] px-4 py-3.5 text-[15px] font-semibold text-white shadow-[var(--shadow-sm)]"
+            disabled={loading}
+            className="mt-2 flex w-full items-center justify-center rounded-[var(--radius-pill)] bg-[var(--text)] px-4 py-3.5 text-[15px] font-semibold text-white shadow-[var(--shadow-sm)] disabled:opacity-60"
           >
-            가입하기
+            {loading ? "가입 중…" : "가입하기"}
           </button>
         </form>
 
@@ -158,6 +246,16 @@ function SignupPageContent() {
           </Link>
         </p>
       </div>
+
+      <AddressSearchModal
+        open={isAddressModalOpen}
+        onClose={() => setIsAddressModalOpen(false)}
+        onSelect={({ address: nextAddress, lat, lng }) => {
+          setAddress(nextAddress);
+          setUserLat(lat);
+          setUserLng(lng);
+        }}
+      />
     </div>
   );
 }

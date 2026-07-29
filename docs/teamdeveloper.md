@@ -1149,6 +1149,89 @@ PC 전용으로 되돌릴 때:
 
 ---
 
+## 2026-07-29 — 회원가입 주소 검색 모달
+
+### 한 일
+- `AddressSearchModal`: 앱 토큰 UI + `searchTmapPlaces`(BE places) 연동. 결과 목록 name/address, 디바운스·로딩·빈결과.
+- signup 주소 필드는 모달 `onSelect`로 채움.
+
+### 결정
+- BE가 내려주는 필드는 id/name/address/lat/lng만 사용(TMAP 원본의 일부). count 최대 10.
+
+### 다음
+- 필요 시 BE에서 도로명·지번 등 추가 필드 매핑 검토.
+
+---
+
+## 2026-07-29 — 로그인 화면 id/pw 입력 UI
+
+### 한 일
+- `/login`: 이메일·비밀번호 입력 + 로그인 버튼 폼 추가 (signup과 동일 필드 스타일).
+- `onSubmit`은 preventDefault + FormData 추출만 (API 연동은 사용자가 직접).
+
+### 결정
+- 로컬 로그인 폼을 상단, 소셜·회원가입은 그 아래. 가입과 동일하게 `userId` = 이메일.
+
+### 다음
+- `POST /api/v1/auth/login` 연동 및 토큰 저장·returnUrl 이동.
+
+---
+
+## 2026-07-29 — 로그인 소셜 버튼 UI 개선
+
+### 한 일
+- 카카오/구글/네이버: 브랜드 SVG 아이콘 + 좌측 원형 뱃지, 호버·프레스 피드백.
+- 카피: 「~로 계속하기」, 구분선 문구 「소셜 계정으로 계속」.
+
+### 결정
+- 아이콘은 페이지 인라인 SVG (외부 이미지/폰트 의존 없음).
+
+### 다음
+- (없음)
+
+---
+
+## 2026-07-29 — 로컬 로그인 JWT 저장·이동
+
+### 한 일
+- `/login` 성공 시 `localStorage.accessToken` 저장, authStore 유저·포인트 hydrate, `returnUrl`(기본 `/map`)로 `router.replace`.
+
+### 결정
+- BE camelCase `accessToken` 사용. Bearer는 이후 API 호출 헤더에서 읽음.
+
+### 다음
+- fetch 공통 Authorization 헤더 / `fetchMe` 연동.
+
+---
+
+## 2026-07-29 — 로그인 성공 후 hard redirect
+
+### 한 일
+- 로그인 성공 시 `router.replace` → `window.location.assign(returnUrl|/map)` 로 변경 (소프트 네비가 안 먹는 경우 대비).
+
+### 결정
+- 인증 직후 이동은 hard navigation 우선.
+
+### 다음
+- (없음)
+
+---
+
+## 2026-07-29 — 로그인 후 TopBar 로그아웃 표시
+
+### 한 일
+- `authStore.fetchMe`: localStorage Bearer → `GET /api/v1/auth/me` hydrate.
+- `logout`: 토큰 삭제 + store clear (+ BE logout 호출).
+- `/map` `handlePostLoginLanding`에서 fetchMe 호출 → TopBar가 닉네임/로그아웃으로 전환.
+
+### 결정
+- TopBar UI는 기존 `user ? 로그아웃 : 로그인` 유지. 문제는 hard redirect 후 store 소실 → /me로 복원.
+
+### 다음
+- (없음)
+
+---
+
 ## 기록 규칙
 
 1. 날짜 헤더(`## YYYY-MM-DD — 제목`)로 추가.
