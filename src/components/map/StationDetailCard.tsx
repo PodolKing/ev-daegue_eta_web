@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  detailAvailabilityLines,
+  getChargerTypeLabel,
+  isSlowChargerType,
+} from "@/lib/chargerTypes";
 import { useMapStore } from "@/stores/mapStore";
 
 export function StationDetailCard() {
@@ -10,16 +15,8 @@ export function StationDetailCard() {
   const station = stations.find((s) => s.stationId === selectedId);
   if (!station) return null;
 
-  const avail =
-    station.availableCount === null
-      ? { title: "데이터 없음", sub: "상태 미관측", tone: "text-[var(--text-muted)]" }
-      : station.availableCount === 0
-        ? { title: "0", sub: "충전대기 없음", tone: "text-[var(--warning)]" }
-        : {
-            title: String(station.availableCount),
-            sub: "충전대기",
-            tone: "text-[var(--success)]",
-          };
+  const chargerTypes = station.chargerTypes ?? [];
+  const avail = detailAvailabilityLines(station);
 
   return (
     <article className="animate-fade-up w-full max-w-[360px] rounded-[var(--radius-lg)] border border-[var(--border)] bg-white/95 p-4 shadow-[var(--shadow-md)] backdrop-blur-md">
@@ -48,14 +45,67 @@ export function StationDetailCard() {
         </button>
       </div>
 
+      <div className="mt-3">
+        <p className="text-[11px] font-medium text-[var(--text-muted)]">충전기 타입</p>
+        {chargerTypes.length > 0 ? (
+          <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label="충전기 타입">
+            {chargerTypes.map((code) => {
+              const slow = isSlowChargerType(code);
+              return (
+                <li key={code}>
+                  <span
+                    className={[
+                      "inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-2.5 py-1 text-[11px] font-semibold tracking-tight",
+                      slow
+                        ? "bg-[var(--success-soft)] text-[var(--success)]"
+                        : "bg-[var(--accent-soft)] text-[var(--accent)]",
+                    ].join(" ")}
+                  >
+                    <span
+                      className={[
+                        "h-1.5 w-1.5 shrink-0 rounded-full",
+                        slow ? "bg-[var(--success)]" : "bg-[var(--accent)]",
+                      ].join(" ")}
+                      aria-hidden
+                    />
+                    {getChargerTypeLabel(code)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">타입 정보 없음</p>
+        )}
+      </div>
+
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-3">
-          <p className={`text-[28px] font-extrabold leading-none tracking-tight ${avail.tone}`}
-            style={{ fontFamily: "var(--font-display), sans-serif" }}
-          >
-            {avail.title}
-          </p>
-          <p className="mt-1 text-[11px] text-[var(--text-muted)]">{avail.sub}</p>
+          {avail.mixed ? (
+            <ul className="space-y-2" aria-label="타입별 충전가능">
+              {avail.lines.map((line) => (
+                <li key={line.label} className="flex items-baseline justify-between gap-2">
+                  <span className="text-[11px] text-[var(--text-muted)]">{line.label}</span>
+                  <span
+                    className={`text-[20px] font-extrabold leading-none tracking-tight ${line.tone}`}
+                    style={{ fontFamily: "var(--font-display), sans-serif" }}
+                  >
+                    {line.value}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <>
+              <p
+                className={`text-[28px] font-extrabold leading-none tracking-tight ${avail.lines[0].tone}`}
+                style={{ fontFamily: "var(--font-display), sans-serif" }}
+              >
+                {avail.lines[0].value}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--text-muted)]">{avail.lines[0].label}</p>
+            </>
+          )}
         </div>
         <div className="rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-3">
           <p

@@ -29,7 +29,8 @@
   --color-background: var(--bg);
   --color-foreground: var(--text);
   --font-sans: var(--font-sans);
-  --font-display: var(--font-display);
+  /* Headings use the same Noto Sans KR stack */
+  --font-display: var(--font-sans);
 }
 
 * {
@@ -42,6 +43,11 @@ body {
   /* Prefer map gestures over browser page zoom on mobile */
   touch-action: manipulation;
   overscroll-behavior: none;
+}
+
+/* Headings (`var(--font-display)`) share Noto Sans KR from next/font */
+html {
+  --font-display: var(--font-sans);
 }
 
 body {
