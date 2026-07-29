@@ -137,6 +137,44 @@ export function filterStationsBySlowInclude<
   );
 }
 
+/**
+ * 목록·마커용 가용 대수.
+ * - includeSlow true → 전체 availableCount
+ * - false → 그외만(availableCountOther). 필드 없으면 합계로 폴백
+ */
+export function availableCountForSlowFilter(
+  station: {
+    availableCount: number | null;
+    availableCountOther?: number | null;
+  },
+  includeSlow: boolean,
+): number | null {
+  if (includeSlow) return station.availableCount;
+  if (station.availableCountOther !== undefined) {
+    return station.availableCountOther;
+  }
+  return station.availableCount;
+}
+
+/**
+ * 마커용 총대수.
+ * - includeSlow true → chargerTotal
+ * - false → chargerTotalOther. 필드 없으면 전체로 폴백
+ */
+export function chargerTotalForSlowFilter(
+  station: {
+    chargerTotal?: number | null;
+    chargerTotalOther?: number | null;
+  },
+  includeSlow: boolean,
+): number | null | undefined {
+  if (includeSlow) return station.chargerTotal;
+  if (station.chargerTotalOther !== undefined) {
+    return station.chargerTotalOther;
+  }
+  return station.chargerTotal;
+}
+
 /** 그외+완속 모두 있는 혼합 충전소 */
 export function stationIsMixedType(
   codes: readonly string[] | null | undefined,

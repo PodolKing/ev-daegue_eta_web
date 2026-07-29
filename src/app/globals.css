@@ -40,9 +40,14 @@
 html,
 body {
   height: 100%;
-  /* Prefer map gestures over browser page zoom on mobile */
-  touch-action: manipulation;
+  /*
+   * pan only — do NOT use `manipulation` (that still allows pinch page-zoom).
+   * Map canvas overrides with touch-action: none.
+   */
+  touch-action: pan-x pan-y;
   overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Headings (`var(--font-display)`) share Noto Sans KR from next/font */
@@ -58,10 +63,34 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* iOS Safari: focus zoom when input font-size < 16px — keep ≥16 on narrow screens */
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* TMAP canvas: all pinches/pans go to the map, not the browser */
 #ev-tmap-map {
   touch-action: none;
   -ms-touch-action: none;
+}
+
+/* Station list / bottom sheet: vertical scroll only — block pinch page-zoom where supported */
+.ev-scroll-panel {
+  touch-action: pan-y;
+  -ms-touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+/*
+ * Tailwind `touch-manipulation` allows pinch-zoom. Override so FAB/buttons
+ * don't trigger browser page zoom; map uses #ev-tmap-map { touch-action: none }.
+ */
+.touch-manipulation {
+  touch-action: pan-x pan-y !important;
 }
 
 button,
