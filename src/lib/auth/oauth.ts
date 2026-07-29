@@ -1,5 +1,6 @@
 import { getApiBase } from "@/lib/api";
 import { sanitizeReturnUrl } from "@/lib/auth/returnUrl";
+import { useAuthStore } from "@/stores/authStore";
 
 export type OAuthProvider = "kakao" | "google" | "naver";
 
@@ -21,9 +22,9 @@ export function startOAuthRedirect(
 
 
 /**
- * Called when user lands back on app after BE callback + cookie.
- * TODO: fetch `/api/v1/auth/me`, hydrate auth store; map restore is URL-driven.
+ * Called when user lands on /map (local login redirect or OAuth return).
+ * Hydrates auth from localStorage Bearer → GET /me.
  */
 export async function handlePostLoginLanding(): Promise<void> {
-  // TODO: GET me → setUser
+  await useAuthStore.getState().fetchMe();
 }
