@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { filterStationsBySlowInclude } from "@/lib/chargerTypes";
+import {
+  availableCountForSlowFilter,
+  filterStationsBySlowInclude,
+} from "@/lib/chargerTypes";
 import { useMapStore } from "@/stores/mapStore";
 
 function formatAvailable(count: number | null): { label: string; tone: string } {
@@ -9,10 +12,10 @@ function formatAvailable(count: number | null): { label: string; tone: string } 
     return { label: "미관측", tone: "text-[var(--text-muted)] bg-[var(--surface-muted)]" };
   }
   if (count === 0) {
-    return { label: "대기 0", tone: "text-[var(--warning)] bg-[var(--warning-soft)]" };
+    return { label: "충전가능 0", tone: "text-[var(--warning)] bg-[var(--warning-soft)]" };
   }
   return {
-    label: `대기 ${count}`,
+    label: `충전가능 ${count}`,
     tone: "text-[var(--success)] bg-[var(--success-soft)]",
   };
 }
@@ -32,7 +35,7 @@ export function StationList() {
   );
 
   return (
-    <section className="flex h-full min-h-0 w-full flex-col bg-[var(--surface)]">
+    <section className="ev-scroll-panel flex h-full min-h-0 w-full flex-col bg-[var(--surface)]">
       <div className="border-b border-[var(--border)] px-4 py-4">
         <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
           Nearby
@@ -49,7 +52,7 @@ export function StationList() {
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      <div className="ev-scroll-panel min-h-0 flex-1 overflow-y-auto px-2 py-2">
         {loading && (
           <div className="space-y-2 p-2">
             {[0, 1, 2].map((i) => (
@@ -80,7 +83,8 @@ export function StationList() {
 
         <ul className="space-y-1">
           {visible.map((s) => {
-            const avail = formatAvailable(s.availableCount);
+            const count = availableCountForSlowFilter(s, includeSlow);
+            const avail = formatAvailable(count);
             const active = s.stationId === selectedId;
             return (
               <li key={s.stationId}>
@@ -100,7 +104,7 @@ export function StationList() {
                       avail.tone,
                     ].join(" ")}
                   >
-                    {s.availableCount === null ? "—" : s.availableCount}
+                    {count === null ? "—" : count}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-semibold text-[var(--text)]">

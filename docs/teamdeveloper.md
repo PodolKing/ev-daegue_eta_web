@@ -251,11 +251,11 @@ PC 전용으로 되돌릴 때:
 | 구분 | 내용 |
 |---|---|
 | 진행 단계 | 지도 **동결** · 완속 필터 · 가용 합계/버킷 분해 |
-| FE | `/map` 정상. 마커·리스트=`availableCount` 합계. 상세=혼합소 other/slow 분리 |
-| BE | stations에 `availableCountOther`/`Slow` 추가(합계 필드 유지) |
+| FE | `/map` 정상. 목록·마커 가용·총대수=`includeSlow`에 맞춤(기본=other). 상세=혼합소 other/slow 분리 |
+| BE | stations: `availableCountOther`/`Slow` + `chargerTotalOther`(slow total 없음=total−other) |
 | 문서 | **`docs/important.md` 필독(잠금)**. rules, MAP_KEY/APP_KEY 분리 |
 | Git | `web/`·`api/` 별도 리포. 상위는 git 없음 |
-| 다음 | 혼합소 상세 숫자 실기 확인 |
+| 다음 | 혼합소에서 완속 토글 시 마커 `가용/총` 실기 확인 |
 
 기준 합의: 워크스페이스 `docs/프로젝트_현황_및_합의사항_20260723.md` (변수명·코드 의미 변경 금지)
 
@@ -1226,6 +1226,90 @@ PC 전용으로 되돌릴 때:
 
 ### 결정
 - TopBar UI는 기존 `user ? 로그아웃 : 로그인` 유지. 문제는 hard redirect 후 store 소실 → /me로 복원.
+
+### 다음
+- (없음)
+
+---
+
+## 2026-07-29 — 로그인 에러 UI·모바일 압축 레이아웃
+
+### 한 일
+- 로그인 실패 시 `error`를 폼 아래 alert로 표시 (기존엔 set만 하고 렌더 누락).
+- 모바일: 패딩·타이틀·버튼·간격 축소, 설명문 숨김, 회원가입을 하단 고정에 가깝게 배치해 한 화면에 맞춤.
+
+### 결정
+- BE `id 또는 password 오류` → FE에서 사용자용 문구로 치환.
+
+### 다음
+- (없음)
+
+---
+
+## 2026-07-29 — Auth /me FE 규칙 문서화
+
+### 한 일
+- `docs/rules/06_auth_me.md` + `.cursor/rules/auth-me.mdc` 추가 (Bearer·hydrate·`user:null` 시 토큰 삭제).
+- `docs/rules/README.md`·`03_conventions.md`·`project-overview.mdc`에 링크.
+
+### 결정
+- `/me`는 optional auth(대개 200+user null). 401만으로 비로그인 판단하지 않음.
+
+### 다음
+- 커밋 시 `web/docs/rules`·`api/docs/rules` 동기화 여부 팀 관행 따름.
+
+---
+
+## 2026-07-29 — 모바일 페이지 줌 방지 규칙
+
+### 한 일
+- `docs/rules/07_mobile_viewport_zoom.md` + `.cursor/rules/mobile-viewport-zoom.mdc` 추가.
+- 확대 후 viewport로 축소 불가 → 로그인 포함 전역 가드, 지도만 `#ev-tmap-map` 핀치. 새 페이지 체크리스트 명시.
+
+### 결정
+- `touch-action: manipulation` 사용 지양(핀치 페이지 줌 허용). 전역 pan + DisableBrowserZoom 유지.
+
+### 다음
+- (없음)
+
+---
+
+## 2026-07-29 — 완속 필터에 맞춰 가용 대수 표시
+
+### 한 일
+- `availableCountForSlowFilter`: 완속 제외 시 `availableCountOther`, 포함 시 `availableCount`.
+- StationList·StationMarkers가 위 헬퍼로 「충전가능」/마커 숫자 표시.
+
+### 결정
+- 목록에 보이는 충전소와 가용 숫자 기준을 동일하게 맞춤(기본=그외만).
+
+### 다음
+- 혼합소에서 완속 토글 시 목록·마커 숫자 변화 실기 확인.
+
+---
+
+## 2026-07-29 — 마커 총대수도 완속 필터 반영 (`chargerTotalOther`)
+
+### 한 일
+- BE: `_TOTAL_SQL` — `charger_total` + `charger_total_other`(02/08 제외, 공란→other). near/viewport 공통.
+- FE: `chargerTotalForSlowFilter` → 마커 `가용/총` 분모. `chargerTotalSlow` 없음(필요 시 total−other).
+- `stations_api.md` / `backendguide.md` 반영.
+
+### 결정
+- 총대수는 가용과 달리 null 버킷이 없어 total+other만. slow는 파생.
+
+### 다음
+- 혼합소에서 완속 토글 시 마커 분모 변화 실기 확인.
+
+---
+
+## 2026-07-29 — `backendguide.md` 완속·총대수 계약 보강
+
+### 한 일
+- S5 응답 필드·`includeSlow` 표, §1.3~1.3.2(가용 3버킷·`_TOTAL_SQL`·BE 비필터), §6·7.1·실수 목록·멘탈 모델 갱신.
+
+### 결정
+- 로컬 가이드가 stations 가용/총 + FE 토글 분계의 SSOT 보조.
 
 ### 다음
 - (없음)

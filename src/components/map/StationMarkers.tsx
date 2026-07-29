@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import type { Station } from "@/types/station";
-import { filterStationsBySlowInclude } from "@/lib/chargerTypes";
+import {
+  availableCountForSlowFilter,
+  chargerTotalForSlowFilter,
+  filterStationsBySlowInclude,
+} from "@/lib/chargerTypes";
 import { useLocationStore } from "@/stores/locationStore";
 import { useMapStore } from "@/stores/mapStore";
 
@@ -67,9 +71,15 @@ function buildCircleIconUrl(
   return canvas.toDataURL("image/png");
 }
 
-function markerIcon(station: Station, selected: boolean) {
-  const { fill } = markerStyle(station.availableCount);
-  const label = formatLabel(station.availableCount, station.chargerTotal);
+function markerIcon(
+  station: Station,
+  selected: boolean,
+  includeSlow: boolean,
+) {
+  const available = availableCountForSlowFilter(station, includeSlow);
+  const total = chargerTotalForSlowFilter(station, includeSlow);
+  const { fill } = markerStyle(available);
+  const label = formatLabel(available, total);
   const url = buildCircleIconUrl(label, fill, selected);
   if (!url || !window.Tmapv2) return undefined;
 
@@ -220,6 +230,7 @@ export default function StationMarkers() {
     }
 
     const selected = useMapStore.getState().selectedId;
+    const slowOn = useMapStore.getState().includeSlow;
     const nextIds = new Set(visible.map((s) => s.stationId));
 
     markersRef.current.forEach((marker, id) => {
@@ -232,7 +243,7 @@ export default function StationMarkers() {
     visible.forEach((station) => {
       const position = new window.Tmapv2.LatLng(station.lat, station.lng);
       const isSelected = station.stationId === selected;
-      const icon = markerIcon(station, isSelected);
+      const icon = markerIcon(station, isSelected, slowOn);
       let marker = markersRef.current.get(station.stationId);
 
       if (!marker) {
@@ -284,10 +295,14 @@ export default function StationMarkers() {
     stationsRef.current.forEach((station) => {
       const marker = markersRef.current.get(station.stationId);
       if (!marker || typeof marker.setIcon !== "function") return;
-      const icon = markerIcon(station, station.stationId === selectedId);
+      const icon = markerIcon(
+        station,
+        station.stationId === selectedId,
+        includeSlow,
+      );
       if (icon) marker.setIcon(icon);
     });
-  }, [map, selectedId]);
+  }, [map, selectedId, includeSlow]);
 
   /**
    * Mobile: radius Circle often swallows Marker taps (same issue as 시험주행).

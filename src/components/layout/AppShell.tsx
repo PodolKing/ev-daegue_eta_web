@@ -233,16 +233,45 @@ export function AppShell() {
         <TopBar apiOnline={apiOnline} />
         <MapView />
 
-        {/* Compact: toggle icon rail — sits above sheet (or peek when collapsed) */}
+        {/* Compact: toggle icon rail — same FAB size as map controls */}
         {isCompact && (
           <button
             type="button"
             onClick={() => setRailOpen((v) => !v)}
-            className="absolute bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)] right-3 z-[45] rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)] touch-manipulation md:bottom-4"
+            className={[
+              "absolute bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)] right-3 z-[45] flex h-10 w-10 items-center justify-center rounded-full border shadow touch-manipulation md:bottom-4",
+              railOpen
+                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                : "border-[var(--border)] bg-white text-[var(--text-secondary)]",
+            ].join(" ")}
             aria-label={railOpen ? "메뉴 닫기" : "메뉴 열기"}
             aria-expanded={railOpen}
+            title={railOpen ? "메뉴 닫기" : "메뉴"}
           >
-            {railOpen ? "닫기" : "메뉴"}
+            {railOpen ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M7 7l10 10M17 7 7 17"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="square"
+                />
+              </svg>
+            ) : (
+              /* Side-rail glyph — not equal hamburger bars */
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M5 5.5h3.5v13H5z"
+                  fill="currentColor"
+                />
+                <path
+                  d="M11 7h8M11 12h6.5M11 17h7"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="square"
+                />
+              </svg>
+            )}
           </button>
         )}
 
@@ -266,7 +295,7 @@ export function AppShell() {
               : "translate-y-[calc(100%-2.75rem)]",
           ].join(" ")}
         >
-          <div className="pointer-events-auto max-h-[42dvh] overflow-hidden rounded-t-[20px] border border-[var(--border)] bg-white shadow-[var(--shadow-md)]">
+          <div className="ev-scroll-panel pointer-events-auto max-h-[42dvh] overflow-hidden rounded-t-[20px] border border-[var(--border)] bg-white shadow-[var(--shadow-md)]">
             <button
               type="button"
               onClick={() => setMobileListOpen(!mobileListOpen)}
@@ -279,7 +308,7 @@ export function AppShell() {
                 {mobileListOpen ? "목록 접기" : "목록"}
               </span>
             </button>
-            <div className="h-[calc(42dvh-2.75rem)]">
+            <div className="ev-scroll-panel h-[calc(42dvh-2.75rem)]">
               <StationList />
             </div>
           </div>

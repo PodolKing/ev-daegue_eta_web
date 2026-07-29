@@ -2,6 +2,7 @@
 
 type NavId = "map" | "favorites" | "points" | "settings";
 
+/** Stroke icons — short, slightly uneven geometry (less Lucide-default). */
 const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
   {
     id: "map",
@@ -9,12 +10,12 @@ const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
-          d="M9 4.5 3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5 9 4.5Z"
+          d="M12 21s-6.5-5.2-6.5-10.2A6.5 6.5 0 0 1 12 4.3a6.5 6.5 0 0 1 6.5 6.5C18.5 15.8 12 21 12 21Z"
           stroke="currentColor"
-          strokeWidth="1.7"
+          strokeWidth="1.85"
           strokeLinejoin="round"
         />
-        <path d="M9 4.5v13M15 6.5v13" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="12" cy="10.8" r="2.1" fill="currentColor" />
       </svg>
     ),
   },
@@ -24,9 +25,9 @@ const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
-          d="m12 4.5 2.2 4.5 5 .7-3.6 3.5.9 5L12 15.8 7.5 18.2l.9-5L4.8 9.7l5-.7L12 4.5Z"
+          d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.2L6 20V5.5a1 1 0 0 1 1-1Z"
           stroke="currentColor"
-          strokeWidth="1.7"
+          strokeWidth="1.85"
           strokeLinejoin="round"
         />
       </svg>
@@ -37,12 +38,21 @@ const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
     label: "포인트",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle cx="12" cy="12" r="8.25" stroke="currentColor" strokeWidth="1.7" />
-        <path
-          d="M12 8v8M9.5 10.5c.5-1 1.4-1.5 2.5-1.5s2 .6 2 1.7c0 2.3-4.5 1.5-4.5 3.8 0 1 .8 1.7 2 1.7s1.9-.4 2.4-1.2"
+        <rect
+          x="4.5"
+          y="6"
+          width="15"
+          height="12"
+          rx="2"
           stroke="currentColor"
-          strokeWidth="1.7"
+          strokeWidth="1.85"
+        />
+        <path
+          d="M8 10.2h3.2c1.35 0 2.3.75 2.3 1.95S12.55 14.1 11.2 14.1H8V10.2Zm0 3.9V17"
+          stroke="currentColor"
+          strokeWidth="1.85"
           strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </svg>
     ),
@@ -52,13 +62,14 @@ const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
     label: "설정",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7" />
         <path
-          d="M12 3.5v2.2M12 18.3v2.2M4.9 7.2l1.9 1.1M17.2 15.7l1.9 1.1M3.5 12h2.2M18.3 12h2.2M4.9 16.8l1.9-1.1M17.2 8.3l1.9-1.1"
+          d="M5 8.5h14M5 15.5h14"
           stroke="currentColor"
-          strokeWidth="1.7"
+          strokeWidth="1.85"
           strokeLinecap="round"
         />
+        <circle cx="9" cy="8.5" r="2.15" fill="currentColor" />
+        <circle cx="15" cy="15.5" r="2.15" fill="currentColor" />
       </svg>
     ),
   },
@@ -75,7 +86,7 @@ export function IconRail({
       aria-label="주 메뉴"
     >
       <div
-        className="mb-6 flex h-10 w-10 items-center justify-center rounded-[12px] bg-[var(--text)] text-white shadow-[var(--shadow-sm)]"
+        className="mb-6 flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--text)] text-white"
         title="EV SafeCharge"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -96,14 +107,14 @@ export function IconRail({
               title={item.label}
               aria-current={isActive ? "page" : undefined}
               className={[
-                "group relative flex h-11 w-11 items-center justify-center rounded-[12px] transition-colors",
+                "group relative flex h-11 w-11 items-center justify-center rounded-[10px] transition-colors",
                 isActive
                   ? "bg-[var(--accent-soft)] text-[var(--accent)]"
                   : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]",
               ].join(" ")}
             >
               {isActive && (
-                <span className="absolute left-[-10px] h-5 w-1 rounded-r-full bg-[var(--accent)]" />
+                <span className="absolute left-[-10px] h-4 w-[3px] bg-[var(--accent)]" />
               )}
               {item.icon}
               <span className="sr-only">{item.label}</span>
@@ -112,7 +123,7 @@ export function IconRail({
         })}
       </nav>
 
-      <div className="mt-auto flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[11px] font-semibold text-[var(--text-secondary)]">
+      <div className="mt-auto flex h-9 w-9 items-center justify-center rounded-[8px] bg-[var(--surface-muted)] text-[10px] font-bold tracking-wide text-[var(--text-secondary)]">
         EV
       </div>
     </aside>
