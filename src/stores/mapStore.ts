@@ -5,14 +5,69 @@ import { useLocationStore } from "@/stores/locationStore";
 
 export const DAEGU_CENTER = { lat: 35.8714, lng: 128.6014 };
 
+/** Mobile bottom sheet snaps (md+ uses side panel). */
+export type MobileSheetSnap = "peek" | "half" | "full";
+
+/** FAB / detail offset + sheet height per snap. */
+export const MOBILE_SHEET_OFFSET: Record<MobileSheetSnap, string> = {
+  peek: "2.75rem",
+  half: "42dvh",
+  full: "90dvh",
+};
+
+const SNAP_UP: Record<MobileSheetSnap, MobileSheetSnap> = {
+  peek: "half",
+  half: "full",
+  full: "full",
+};
+
+const SNAP_DOWN: Record<MobileSheetSnap, MobileSheetSnap> = {
+  peek: "peek",
+  half: "peek",
+  full: "half",
+};
+
+export function bumpSheetSnap(
+  snap: MobileSheetSnap,
+  dir: "up" | "down",
+): MobileSheetSnap {
+  return dir === "up" ? SNAP_UP[snap] : SNAP_DOWN[snap];
+}
+
+/** Handle tap toggle: peek ↔ half (full은 스와이프 up). */
+export function toggleSheetSnap(snap: MobileSheetSnap): MobileSheetSnap {
+  return snap === "peek" ? "half" : "peek";
+}
+
+/**
+ * Drag-end snap (병원 시트 참고: offset + velocity).
+ * offsetY > 0 = 손가락 아래로, velocityY px/s.
+ */
+export function resolveSheetSnapAfterDrag(
+  current: MobileSheetSnap,
+  offsetY: number,
+  velocityY: number,
+): MobileSheetSnap {
+  const threshold = 50;
+  const vThreshold = 400;
+
+  if (velocityY > vThreshold || offsetY > threshold) {
+    return bumpSheetSnap(current, "down");
+  }
+  if (velocityY < -vThreshold || offsetY < -threshold) {
+    return bumpSheetSnap(current, "up");
+  }
+  return current;
+}
+
 type MapState = {
   center: { lat: number; lng: number };
   zoom: number;
   radiusKm: RadiusKm;
   stations: Station[];
   selectedId: string | null;
-  /** Mobile bottom station list sheet (md+ uses side panel instead). */
-  mobileListOpen: boolean;
+  /** Mobile bottom station list sheet snap. */
+  mobileSheetSnap: MobileSheetSnap;
   /**
    * 완속(02/08) 포함 여부. false(기본) = 그외 타입만 목록/마커에 표시.
    */
@@ -26,10 +81,12 @@ type MapState = {
   setRadiusKm: (r: RadiusKm) => void;
   setStations: (items: Station[]) => void;
   setSelectedId: (id: string | null) => void;
+  setMobileSheetSnap: (snap: MobileSheetSnap) => void;
+  /** Convenience: true → half, false → peek (detail card 등). */
   setMobileListOpen: (open: boolean) => void;
   setIncludeSlow: (v: boolean) => void;
   /**
-   * Select station: highlight, close mobile list, pan camera (zoom unchanged).
+   * Select station: highlight, collapse sheet to peek, pan camera (zoom unchanged).
    * Stops GPS follow so the camera does not snap back.
    */
   selectStation: (id: string | null) => void;
@@ -50,7 +107,7 @@ export const useMapStore = create<MapState>((set, get) => ({
   radiusKm: 1,
   stations: [],
   selectedId: null,
-  mobileListOpen: true,
+  mobileSheetSnap: "half",
   includeSlow: false,
   loading: false,
   error: null,
@@ -61,7 +118,9 @@ export const useMapStore = create<MapState>((set, get) => ({
   setRadiusKm: (radiusKm) => set({ radiusKm }),
   setStations: (stations) => set({ stations }),
   setSelectedId: (selectedId) => set({ selectedId }),
-  setMobileListOpen: (mobileListOpen) => set({ mobileListOpen }),
+  setMobileSheetSnap: (mobileSheetSnap) => set({ mobileSheetSnap }),
+  setMobileListOpen: (open) =>
+    set({ mobileSheetSnap: open ? "half" : "peek" }),
   setIncludeSlow: (includeSlow) => {
     const { stations, selectedId } = get();
     let nextSelected = selectedId;
@@ -79,21 +138,21 @@ export const useMapStore = create<MapState>((set, get) => ({
       return;
     }
 
-    const { stations, map, mobileListOpen } = get();
+    const { stations, map, mobileSheetSnap } = get();
     const station = stations.find((s) => s.stationId === id);
+    const wasExpanded = mobileSheetSnap !== "peek";
 
     useLocationStore.getState().setFollow(false);
 
     set({
       selectedId: id,
-      mobileListOpen: false,
+      mobileSheetSnap: "peek",
       ...(station ? { center: { lat: station.lat, lng: station.lng } } : {}),
     });
 
     if (station) {
       panMapTo(station.lat, station.lng, map);
-      // resize only when mobile sheet was open (layout actually shifted)
-      if (mobileListOpen) {
+      if (wasExpanded) {
         window.setTimeout(() => {
           const m = get().map;
           if (m && typeof m.resize === "function") m.resize();

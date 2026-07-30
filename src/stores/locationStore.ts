@@ -115,17 +115,7 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     set({ testMode: enabled });
   },
 
-  locateOnce: () => {
-    if (get().testMode) {
-      const existing = get().coords;
-      if (!existing) {
-        const error = "테스트 모드: 위치가 없습니다.";
-        set({ status: "error", error, source: "test", follow: false });
-        return Promise.reject(new Error(error));
-      }
-      set({ status: "ready", source: "test", error: null });
-      return Promise.resolve(existing);
-    }
+  locateOnce: () => { 
 
     const unavailable = geolocationUnavailableMessage();
     if (unavailable) {

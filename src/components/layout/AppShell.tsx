@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { IconRail } from "@/components/layout/IconRail";
+import { useEffect, useRef, useState } from "react";
+import { IconRail, type NavId } from "@/components/layout/IconRail";
 import { TopBar } from "@/components/layout/TopBar";
 import { MapView } from "@/components/map/MapView";
 import { StationList } from "@/components/map/StationList";
+import { MobileStationSheet } from "@/components/map/MobileStationSheet";
+import { CarPanel } from "@/components/car/CarPanel";
+import { UnimplementedHint } from "@/components/ui/Unimplemented";
 import { fetchHealth, fetchStations } from "@/lib/api";
 import { useCompactLayout } from "@/lib/device/useCompactLayout";
 import { FEATURES } from "@/lib/features";
-import { DAEGU_CENTER, useMapStore } from "@/stores/mapStore";
+import { DAEGU_CENTER, useMapStore, MOBILE_SHEET_OFFSET } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
 
 /** Min move from last stations fetch origin before refetch (watch ticks). */
@@ -33,6 +36,7 @@ function haversineMeters(
 }
 
 export function AppShell() {
+  const [activeNav, setActiveNav] = useState<NavId>("map");
   const isCompact = useCompactLayout();
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   /** Station list side panel (md+) — default open. */
@@ -47,8 +51,8 @@ export function AppShell() {
   const setStations = useMapStore((s) => s.setStations);
   const setLoading = useMapStore((s) => s.setLoading);
   const setError = useMapStore((s) => s.setError);
-  const mobileListOpen = useMapStore((s) => s.mobileListOpen);
-  const setMobileListOpen = useMapStore((s) => s.setMobileListOpen);
+  const mobileSheetSnap = useMapStore((s) => s.mobileSheetSnap);
+
 
   const coords = useLocationStore((s) => s.coords);
   const locateOnce = useLocationStore((s) => s.locateOnce);
@@ -188,33 +192,13 @@ export function AppShell() {
     setRailOpen(!isCompact);
   }, [isCompact]);
 
-  // Swipe gesture on bottom sheet handle
-  const sheetDragRef = useRef<{ startY: number; decided: boolean } | null>(null);
-
-  const onHandlePointerDown = useCallback((e: React.PointerEvent) => {
-    sheetDragRef.current = { startY: e.clientY, decided: false };
-  }, []);
-
-  const onHandlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!sheetDragRef.current || sheetDragRef.current.decided) return;
-    const dy = e.clientY - sheetDragRef.current.startY;
-    if (Math.abs(dy) < 20) return;
-    sheetDragRef.current.decided = true;
-    // drag up (negative dy) → open; drag down → close
-    setMobileListOpen(dy < 0);
-  }, [setMobileListOpen]);
-
-  const onHandlePointerUp = useCallback(() => {
-    sheetDragRef.current = null;
-  }, []);
-
   // Rail width change → TMAP canvas resize
   useEffect(() => {
     const map = useMapStore.getState().map;
     if (!map || typeof map.resize !== "function") return;
     const id = window.setTimeout(() => map.resize(), 220);
     return () => window.clearTimeout(id);
-  }, [railOpen, listPanelOpen, mobileListOpen]);
+  }, [railOpen, listPanelOpen, mobileSheetSnap]);
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-[var(--bg)]">
@@ -225,7 +209,13 @@ export function AppShell() {
         ].join(" ")}
       >
         <div className="h-full w-[68px]">
-          <IconRail />
+          <IconRail
+            active={activeNav}
+            onSelect={(id) => {
+              setActiveNav(id);
+              setListPanelOpen(true);
+            }}
+          />
         </div>
       </div>
 
@@ -236,17 +226,26 @@ export function AppShell() {
           listPanelOpen ? "w-[300px]" : "w-0 overflow-hidden border-r-0",
         ].join(" ")}
       >
-        <StationList />
+        {activeNav === "map" && <StationList />}
+        {activeNav === "favorites" && (
+          <UnimplementedHint>즐겨찾기</UnimplementedHint>
+        )}
+        {activeNav === "points" && (
+          <UnimplementedHint>포인트</UnimplementedHint>
+        )}
+        {activeNav === "car" && <CarPanel />}
+        {activeNav === "settings" && (
+          <UnimplementedHint>설정</UnimplementedHint>
+        )}
       </div>
 
       <main
         className="relative min-w-0 flex-1"
         style={
           {
-            // MapView FAB/detail offset — open sheet 42dvh; collapsed peek ~2.75rem
-            ["--map-sheet-offset" as string]: mobileListOpen
-              ? "42dvh"
-              : "2.75rem",
+            // MobileStationSheet updates this while dragging; fallback = snap height
+            ["--map-sheet-offset" as string]:
+              MOBILE_SHEET_OFFSET[mobileSheetSnap],
           }
         }
       >
@@ -306,37 +305,7 @@ export function AppShell() {
           {listPanelOpen ? "‹" : "›"}
         </button>
 
-        {/* Mobile bottom sheet — collapsible */}
-        <div
-          className={[
-            "pointer-events-none absolute inset-x-0 bottom-0 z-30 transition-transform duration-200 md:hidden",
-            mobileListOpen
-              ? "translate-y-0"
-              : "translate-y-[calc(100%-2.75rem)]",
-          ].join(" ")}
-        >
-          <div className="ev-scroll-panel pointer-events-auto max-h-[42dvh] overflow-hidden rounded-t-[20px] border border-[var(--border)] bg-white shadow-[var(--shadow-md)]">
-            <button
-              type="button"
-              onClick={() => setMobileListOpen(!mobileListOpen)}
-              onPointerDown={onHandlePointerDown}
-              onPointerMove={onHandlePointerMove}
-              onPointerUp={onHandlePointerUp}
-              onPointerCancel={onHandlePointerUp}
-              className="flex w-full flex-col items-center pt-2 pb-1 touch-manipulation"
-              aria-label={mobileListOpen ? "목록 접기" : "목록 펼치기"}
-              aria-expanded={mobileListOpen}
-            >
-              <span className="h-1 w-10 rounded-full bg-[var(--border-strong)]" />
-              <span className="mt-1 text-[11px] font-medium text-[var(--text-muted)]">
-                {mobileListOpen ? "목록 접기" : "목록"}
-              </span>
-            </button>
-            <div className="ev-scroll-panel h-[calc(42dvh-2.75rem)]">
-              <StationList />
-            </div>
-          </div>
-        </div>
+        <MobileStationSheet />
       </main>
     </div>
   );

@@ -1,3 +1,5 @@
+import type { ChargingPort } from "@/types/car";
+
 /**
  * 환경부(KECO) 충전기타입(chgerType) 코드 ↔ 표시명.
  * @see 공공데이터 충전기타입 01–10
@@ -28,6 +30,45 @@ export const SLOW_CHARGER_TYPE_CODES: ReadonlySet<string> = new Set([
   "02",
   "08",
 ]);
+
+/**
+ * 차량 충전 포트(어댑터 없음) → 호환 KECO chgerType.
+ * - CCS1: DC콤보 계열 (04/05/06/08/10). NACS-only(09) 제외.
+ * - CHADEMO: 차데모 계열 (01/03/05/06).
+ * - NACS: 09/10만. CCS(04 등)는 어댑터 없이는 비호환.
+ */
+export const PORT_TO_CHGER_TYPE_CODES: Record<
+  ChargingPort,
+  ReadonlySet<string>
+> = {
+  CCS1: new Set(["04", "05", "06", "08", "10"]),
+  CHADEMO: new Set(["01", "03", "05", "06"]),
+  NACS: new Set(["09", "10"]),
+};
+
+export function chgerCodesForChargingPort(
+  port: ChargingPort | null | undefined,
+): ReadonlySet<string> | null {
+  if (port == null) return null;
+  return PORT_TO_CHGER_TYPE_CODES[port] ?? null;
+}
+
+/**
+ * 충전소 chgerType 중 차량 포트와 맞는 코드가 하나라도 있으면 true.
+ * 타입 정보 없음 / port 없음 → true (미분류는 통과).
+ */
+export function stationMatchesCarPort(
+  codes: readonly string[] | null | undefined,
+  port: ChargingPort | null | undefined,
+): boolean {
+  const allowed = chgerCodesForChargingPort(port);
+  if (!allowed) return true;
+  if (!codes?.length) return true;
+  return codes.some((c) => {
+    const normalized = normalizeChargerTypeCode(c);
+    return normalized != null && allowed.has(normalized);
+  });
+}
 
 export function normalizeChargerTypeCode(
   code: string | null | undefined,
