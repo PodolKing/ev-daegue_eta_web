@@ -5,15 +5,20 @@ import type { Station } from "@/types/station";
 import {
   availableCountForSlowFilter,
   chargerTotalForSlowFilter,
+  filterStationsByCarPort,
   filterStationsBySlowInclude,
 } from "@/lib/chargerTypes";
 import { useLocationStore } from "@/stores/locationStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useCarStore,effectiveChargingPort } from "@/stores/carStore";
+import { ChargingPort } from "@/types/car";
 
 const MAP_ELEMENT_ID = "ev-tmap-map";
 /** Tap must land within this many meters of a station (mobile hit slop). */
 const HIT_MAX_M = 80;
 const TAP_MAX_MOVE_PX = 14;
+
+
 
 declare global {
   interface Window {
@@ -220,11 +225,20 @@ export default function StationMarkers() {
   const includeSlow = useMapStore((s) => s.includeSlow);
   const map = useMapStore((s) => s.map);
   const selectedId = useMapStore((s) => s.selectedId);
+  const filterByCarPort = useCarStore((s) => s.filterByCarPort);
+  const primaryCar = useCarStore((s) => s.primaryCar);
+  const port = effectiveChargingPort(primaryCar);
 
   const visible = useMemo(
-    () => filterStationsBySlowInclude(stations, includeSlow),
-    [stations, includeSlow],
+    () =>
+      filterStationsByCarPort(
+        filterStationsBySlowInclude(stations, includeSlow),
+        port,
+        filterByCarPort,
+      ),
+    [stations, includeSlow, port, filterByCarPort],
   );
+
 
   const markersRef = useRef<Map<string, any>>(new Map());
   const stationsRef = useRef(visible);

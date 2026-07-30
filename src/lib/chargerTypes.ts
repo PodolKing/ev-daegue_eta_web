@@ -178,6 +178,19 @@ export function filterStationsBySlowInclude<
   );
 }
 
+export function filterStationsByCarPort<
+T extends { chargerTypes?: string[] | null },
+>(
+stations: readonly T[],
+port: ChargingPort | null | undefined,
+enabled: boolean,
+): T[] {
+if (!enabled || port == null) return [...stations]; // 또는 stations 그대로
+return stations.filter((s) =>
+  stationMatchesCarPort(s.chargerTypes, port),
+);
+}
+
 /**
  * 목록·마커용 가용 대수.
  * - includeSlow true → 전체 availableCount
