@@ -1,6 +1,6 @@
 "use client";
 
-type NavId = "map" | "favorites" | "points" | "settings";
+export type NavId = "map" | "favorites" | "points" | "car" | "settings";
 
 /** Stroke icons — short, slightly uneven geometry (less Lucide-default). */
 const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
@@ -58,6 +58,34 @@ const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    id: "car",
+    label: "내 차량",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M5.5 15.5V11l1.6-4.2A1.5 1.5 0 0 1 8.5 6h7a1.5 1.5 0 0 1 1.4.8L18.5 11v4.5"
+          stroke="currentColor"
+          strokeWidth="1.85"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M5.5 15.5h13"
+          stroke="currentColor"
+          strokeWidth="1.85"
+          strokeLinecap="round"
+        />
+        <circle cx="8" cy="15.5" r="1.6" stroke="currentColor" strokeWidth="1.85" />
+        <circle cx="16" cy="15.5" r="1.6" stroke="currentColor" strokeWidth="1.85" />
+        <path
+          d="M9.8 9h4.4"
+          stroke="currentColor"
+          strokeWidth="1.85"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
     id: "settings",
     label: "설정",
     icon: (
@@ -77,8 +105,10 @@ const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
 
 export function IconRail({
   active = "map",
+  onSelect,
 }: {
   active?: NavId;
+  onSelect?: (id: NavId) => void;
 }) {
   return (
     <aside
@@ -106,6 +136,7 @@ export function IconRail({
               type="button"
               title={item.label}
               aria-current={isActive ? "page" : undefined}
+              onClick={() => onSelect?.(item.id)}
               className={[
                 "group relative flex h-11 w-11 items-center justify-center rounded-[10px] transition-colors",
                 isActive

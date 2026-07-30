@@ -71,6 +71,8 @@ export function MapView() {
   const skipCenterSyncRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  /** 자유주행 ON 직후만 — 검색바와 상시 겹치지 않게 자동 숨김 */
+  const [showExploreHint, setShowExploreHint] = useState(false);
 
   const center = useMapStore((s) => s.center);
   const setCenter = useMapStore((s) => s.setCenter);
@@ -86,6 +88,16 @@ export function MapView() {
   const locateOnce = useLocationStore((s) => s.locateOnce);
   const startWatch = useLocationStore((s) => s.startWatch);
   const setTestCoords = useLocationStore((s) => s.setTestCoords);
+
+  useEffect(() => {
+    if (!FEATURES.drivingTestMode || !testMode) {
+      setShowExploreHint(false);
+      return;
+    }
+    setShowExploreHint(true);
+    const t = window.setTimeout(() => setShowExploreHint(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [testMode]);
 
   const panMapTo = (lat: number, lng: number, zoom?: number) => {
     const map = mapInstanceRef.current;
@@ -631,15 +643,6 @@ export function MapView() {
 
       {/* UI chrome — sibling stacking context above the map trap */}
       <div className="pointer-events-none absolute inset-0 z-10">
-        {FEATURES.drivingTestMode && testMode ? (
-          <div
-            className="pointer-events-none absolute inset-x-3 top-[4.75rem] z-[2] mx-auto max-w-[min(100%,20rem)] rounded-[var(--radius-lg)] border border-amber-200 bg-amber-50/90 px-2.5 py-1 text-center text-[11px] text-amber-900 shadow-[var(--shadow-sm)] md:left-4 md:right-auto md:mx-0"
-            role="status"
-          >
-            시험주행: 탭/클릭으로 위치 · 드래그·핀치로 지도 (반경 원은 잠시 숨김)
-          </div>
-        ) : null}
-
         {mapError ? (
           <div
             className="pointer-events-auto absolute inset-x-3 top-[4.75rem] z-20 max-w-[min(100%,28rem)] rounded-[var(--radius-lg)] border border-[var(--border)] bg-white/95 px-3 py-2 text-[12px] text-[var(--danger)] shadow-[var(--shadow-sm)] md:left-4 md:right-auto"
@@ -669,6 +672,25 @@ export function MapView() {
         >
           <div className="pointer-events-auto w-full">
             <MapSearchBar />
+            {FEATURES.drivingTestMode && showExploreHint ? (
+              <div
+                className="mt-2 flex items-start gap-2 rounded-[var(--radius-lg)] border border-amber-200 bg-amber-50/95 px-2.5 py-1.5 text-[11px] text-amber-900 shadow-[var(--shadow-sm)]"
+                role="status"
+              >
+                <p className="min-w-0 flex-1 leading-snug">
+                  자유주행: 탭/클릭으로 위치 · 드래그·핀치로 지도 (반경 원은
+                  잠시 숨김)
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowExploreHint(false)}
+                  className="shrink-0 rounded px-1 text-[12px] leading-none text-amber-800/80 hover:bg-amber-100"
+                  aria-label="안내 닫기"
+                >
+                  ×
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -739,9 +761,9 @@ export function MapView() {
                   <button
                     type="button"
                     onClick={handleToggleTestDrive}
-                    aria-label={testMode ? "시험주행 끄기" : "시험주행 켜기"}
+                    aria-label={testMode ? "네이게이션모드" : "자유주행 켜기"}
                     aria-pressed={testMode}
-                    title="시험주행"
+                    title="자유주행"
                     className={[
                       "flex h-10 w-10 items-center justify-center rounded-full border shadow touch-manipulation transition-colors",
                       testMode
@@ -783,7 +805,7 @@ export function MapView() {
                       group-focus-within:opacity-100
                     "
                   >
-                    시험주행
+                    주행모드
                   </span>
                 </div>
               ) : null}

@@ -20,7 +20,12 @@ function formatAvailable(count: number | null): { label: string; tone: string } 
   };
 }
 
-export function StationList() {
+type StationListProps = {
+  /** Mobile sheet: one-line header to leave room for rows. */
+  compactHeader?: boolean;
+};
+
+export function StationList({ compactHeader = false }: StationListProps) {
   const stations = useMapStore((s) => s.stations);
   const includeSlow = useMapStore((s) => s.includeSlow);
   const selectedId = useMapStore((s) => s.selectedId);
@@ -34,25 +39,33 @@ export function StationList() {
     [stations, includeSlow],
   );
 
+  const meta = `반경 ${radiusKm}km · 직선거리${!includeSlow ? " · 완속 제외" : ""}`;
+
   return (
     <section className="ev-scroll-panel flex h-full min-h-0 w-full flex-col bg-[var(--surface)]">
-      <div className="border-b border-[var(--border)] px-4 py-4">
-        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
-          Nearby
-        </p>
-        <h2
-          className="mt-1 text-[20px] font-bold tracking-tight text-[var(--text)]"
-          style={{ fontFamily: "var(--font-display), sans-serif" }}
-        >
-          주변 충전소
-        </h2>
-        <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-          반경 {radiusKm}km · 직선 거리 기준
-          {!includeSlow ? " · 완속 제외" : ""}
-        </p>
-      </div>
+      {compactHeader ? (
+        <div className="flex shrink-0 items-baseline justify-between gap-2 border-b border-[var(--border)] px-3 py-2">
+          <h2
+            className="truncate text-[14px] font-bold tracking-tight text-[var(--text)]"
+            style={{ fontFamily: "var(--font-display), sans-serif" }}
+          >
+            주변 충전소
+          </h2>
+          <p className="shrink-0 text-[11px] text-[var(--text-muted)]">{meta}</p>
+        </div>
+      ) : (
+        <div className="shrink-0 border-b border-[var(--border)] px-4 py-3">
+          <h2
+            className="text-[18px] font-bold tracking-tight text-[var(--text)]"
+            style={{ fontFamily: "var(--font-display), sans-serif" }}
+          >
+            주변 충전소
+          </h2>
+          <p className="mt-0.5 text-[12px] text-[var(--text-secondary)]">{meta}</p>
+        </div>
+      )}
 
-      <div className="ev-scroll-panel min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      <div className="ev-scroll-panel min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
         {loading && (
           <div className="space-y-2 p-2">
             {[0, 1, 2].map((i) => (
@@ -81,7 +94,7 @@ export function StationList() {
           </div>
         )}
 
-        <ul className="space-y-1">
+        <ul className="space-y-0.5">
           {visible.map((s) => {
             const count = availableCountForSlowFilter(s, includeSlow);
             const avail = formatAvailable(count);
@@ -92,7 +105,7 @@ export function StationList() {
                   type="button"
                   onClick={() => selectStation(s.stationId)}
                   className={[
-                    "flex w-full items-start gap-3 rounded-[var(--radius-md)] px-3 py-3 text-left transition-colors",
+                    "flex w-full items-start gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-left transition-colors",
                     active
                       ? "bg-[var(--accent-soft)]"
                       : "hover:bg-[var(--surface-muted)]",
@@ -113,7 +126,7 @@ export function StationList() {
                     <span className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
                       {s.address ?? "주소 없음"}
                     </span>
-                    <span className="mt-1.5 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+                    <span className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
                       <span className={avail.tone.split(" ")[0]}>{avail.label}</span>
                       {s.distanceKm != null && (
                         <>
