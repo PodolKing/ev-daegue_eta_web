@@ -3,7 +3,7 @@
 export type NavId = "map" | "favorites" | "points" | "car" | "settings";
 
 /** Stroke icons — short, slightly uneven geometry (less Lucide-default). */
-const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
+export const MAIN_NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
   {
     id: "map",
     label: "지도",
@@ -128,7 +128,7 @@ export function IconRail({
       </div>
 
       <nav className="flex flex-1 flex-col gap-1.5">
-        {NAV.map((item) => {
+        {MAIN_NAV.map((item) => {
           const isActive = item.id === active;
           return (
             <button

@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
  *    (Galaxy Ultra/Fold 실기기 세로·가로 공통)
  * 2. Else narrow window: `max-width: 767px` (Tailwind `md` 미만) — 데스크톱에서 창만 줄인 경우
  *
- * Station list stays open; this only controls the left IconRail.
+ * Station list stays open on desktop; this controls IconRail vs MobileBottomNav.
  * `analyticsDeviceType` is analytics-only — do not use for this UI.
  */
 export function isCompactLayoutNow(): boolean {

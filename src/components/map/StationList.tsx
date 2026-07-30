@@ -6,6 +6,8 @@ import {
   filterStationsBySlowInclude,
 } from "@/lib/chargerTypes";
 import { useMapStore } from "@/stores/mapStore";
+import { filterStationsByCarPort } from "@/lib/chargerTypes";
+import { useCarStore,effectiveChargingPort } from "@/stores/carStore";
 
 function formatAvailable(count: number | null): { label: string; tone: string } {
   if (count === null) {
@@ -33,13 +35,29 @@ export function StationList({ compactHeader = false }: StationListProps) {
   const error = useMapStore((s) => s.error);
   const selectStation = useMapStore((s) => s.selectStation);
   const radiusKm = useMapStore((s) => s.radiusKm);
+  const filterByCarPort = useCarStore((s) => s.filterByCarPort);
+  const setFilterByCarPort = useCarStore((s) => s.setFilterByCarPort);
+  const primaryCar = useCarStore((s) => s.primaryCar);
+  const port = effectiveChargingPort(primaryCar);
 
   const visible = useMemo(
-    () => filterStationsBySlowInclude(stations, includeSlow),
-    [stations, includeSlow],
+    () =>
+      filterStationsByCarPort(
+        filterStationsBySlowInclude(stations, includeSlow),
+        port,
+        filterByCarPort,
+      ),
+    [stations, includeSlow, port, filterByCarPort],
   );
 
-  const meta = `반경 ${radiusKm}km · 직선거리${!includeSlow ? " · 완속 제외" : ""}`;
+  const carPortFilterOn = filterByCarPort && port != null;
+  const meta = [
+    `반경 ${radiusKm}km · 직선거리`,
+    !includeSlow ? "완속 제외" : null,
+    carPortFilterOn ? `내 차(${port})` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <section className="ev-scroll-panel flex h-full min-h-0 w-full flex-col bg-[var(--surface)]">
@@ -85,12 +103,35 @@ export function StationList({ compactHeader = false }: StationListProps) {
 
         {!loading && !error && visible.length === 0 && (
           <div className="m-2 rounded-[var(--radius-md)] border border-dashed border-[var(--border-strong)] px-4 py-8 text-center">
-            <p className="text-[14px] font-medium text-[var(--text)]">표시할 충전소가 없습니다</p>
-            <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-              {stations.length > 0 && !includeSlow
-                ? "완속만 있는 충전소입니다. 완속 필터를 켜 보세요."
-                : "DB 연결 후 현위치 기준으로 불러옵니다"}
+            <p className="text-[14px] font-medium text-[var(--text)]">
+              표시할 충전소가 없습니다
             </p>
+            <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+              {carPortFilterOn ? (
+                <>
+                  이 반경에 내 차 포트
+                  {port === "NACS" ? "(NACS)" : port === "CCS1" ? "(CCS)" : "(CHAdeMO)"}
+                  로 맞는 곳이 없습니다.
+                  {port === "NACS"
+                    ? " 이 지역 공공 NACS·콤보+NACS는 아직 매우 적습니다."
+                    : ""}{" "}
+                  반경을 넓히거나 전체 보기로 전환해 보세요.
+                </>
+              ) : stations.length > 0 && !includeSlow ? (
+                "완속만 있는 충전소입니다. 완속 필터를 켜 보세요."
+              ) : (
+                "DB 연결 후 현위치 기준으로 불러옵니다"
+              )}
+            </p>
+            {carPortFilterOn ? (
+              <button
+                type="button"
+                onClick={() => setFilterByCarPort(false)}
+                className="mt-3 rounded-[10px] border border-[var(--border)] bg-white px-3 py-1.5 text-[12px] font-medium text-[var(--text)] touch-manipulation hover:bg-[var(--surface-muted)]"
+              >
+                전체 보기
+              </button>
+            ) : null}
           </div>
         )}
 

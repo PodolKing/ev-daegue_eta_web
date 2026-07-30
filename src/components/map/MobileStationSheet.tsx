@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { CarPanel } from "@/components/car/CarPanel";
+import type { NavId } from "@/components/layout/IconRail";
 import { StationList } from "@/components/map/StationList";
+import { UnimplementedHint } from "@/components/ui/Unimplemented";
 import {
   MOBILE_SHEET_OFFSET,
   resolveSheetSnapAfterDrag,
@@ -31,8 +34,13 @@ function snapTranslateYPx(snap: MobileSheetSnap, vh: number): number {
 /**
  * Transform-based bottom sheet: finger follows while dragging,
  * ease on release. Resting snap uses dvh (no window on first paint).
+ * md 미만: 데스크톱 사이드 패널 대신 이 시트에 네비(목록/내 차량 등) 표시.
  */
-export function MobileStationSheet() {
+export function MobileStationSheet({
+  activeNav = "map",
+}: {
+  activeNav?: NavId;
+}) {
   const mobileSheetSnap = useMapStore((s) => s.mobileSheetSnap);
   const setMobileSheetSnap = useMapStore((s) => s.setMobileSheetSnap);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -170,9 +178,22 @@ export function MobileStationSheet() {
     setMobileSheetSnap(toggleSheetSnap(useMapStore.getState().mobileSheetSnap));
   }, [setMobileSheetSnap]);
 
-  const sheetLabel = mobileSheetSnap === "peek" ? "목록" : "접기";
+  const panelTitle =
+    activeNav === "car"
+      ? "내 차량"
+      : activeNav === "favorites"
+        ? "즐겨찾기"
+        : activeNav === "points"
+          ? "포인트"
+          : activeNav === "settings"
+            ? "설정"
+            : "목록";
+  const sheetLabel =
+    mobileSheetSnap === "peek" ? panelTitle : "접기";
   const sheetAria =
-    mobileSheetSnap === "peek" ? "목록 펼치기" : "목록 접기";
+    mobileSheetSnap === "peek"
+      ? `${panelTitle} 펼치기`
+      : "접기";
 
   const transform =
     dragY != null
@@ -215,7 +236,17 @@ export function MobileStationSheet() {
           </span>
         </button>
         <div className="ev-scroll-panel min-h-0 flex-1 overflow-hidden">
-          <StationList compactHeader />
+          {activeNav === "map" && <StationList compactHeader />}
+          {activeNav === "car" && <CarPanel />}
+          {activeNav === "favorites" && (
+            <UnimplementedHint>즐겨찾기</UnimplementedHint>
+          )}
+          {activeNav === "points" && (
+            <UnimplementedHint>포인트</UnimplementedHint>
+          )}
+          {activeNav === "settings" && (
+            <UnimplementedHint>설정</UnimplementedHint>
+          )}
         </div>
       </div>
     </div>
