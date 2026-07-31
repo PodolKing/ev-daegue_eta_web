@@ -137,12 +137,7 @@ export default function AddressSearchModal({
       aria-modal="true"
       aria-labelledby="address-search-title"
     >
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label="닫기"
-        onClick={onClose}
-      />
+   
 
       <div className="relative z-10 flex max-h-[min(88dvh,560px)] w-full max-w-md flex-col overflow-hidden rounded-t-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-md)] sm:rounded-[var(--radius-lg)]">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--border)] px-4 pb-3 pt-4">

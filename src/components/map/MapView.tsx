@@ -5,11 +5,20 @@ import { useMapStore } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
 import { RadiusControl } from "@/components/map/RadiusControl";
 import { StationDetailCard } from "@/components/map/StationDetailCard";
+import { PlaceSummaryBar } from "@/components/map/PlaceSummaryBar";
+import { RoutePolyline } from "@/components/map/RoutePolyline";
+import { RouteLiveRefresh } from "@/components/map/RouteLiveRefresh";
 import { MapSearchBar } from "@/components/map/MapSearchBar";
 import { UnimplementedBadge } from "@/components/ui/Unimplemented";
 import { FEATURES } from "@/lib/features";
+import {
+  beginMapGesture,
+  endMapGesture,
+  isMapGestureActive,
+} from "@/lib/map/mapGesture";
 import { ensureTmapSdk, isTmapSdkReady } from "@/lib/tmap/loadSdk";
 import StationMarkers from "@/components/map/StationMarkers";
+import { CarPortFilterFab } from "@/components/map/CarPortFilterFab";
 import { SlowChargeFilterFab } from "@/components/map/SlowChargeFilterFab";
 
 declare global {
@@ -78,6 +87,7 @@ export function MapView() {
   const setCenter = useMapStore((s) => s.setCenter);
   const setZoom = useMapStore((s) => s.setZoom);
   const setMap = useMapStore((s) => s.setMap);
+  const searchUiOpen = useMapStore((s) => s.searchUiOpen);
 
   const coords = useLocationStore((s) => s.coords);
   const locationError = useLocationStore((s) => s.error);
@@ -371,7 +381,9 @@ export function MapView() {
   }, []);
 
   /**
-   * locationStore.coords → TMAP Marker (real map position, not screen-center overlay)
+   * locationStore.coords → TMAP Marker (real map position, not screen-center overlay).
+   * Do NOT gate on isMapGestureActive: free-drive taps update coords during the
+   * ~450ms gesture hold; skipping here left the marker stuck (camera/circle still gated).
    */
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -401,11 +413,45 @@ export function MapView() {
   }, [coords, mapReady]);
 
   /**
+   * Always: lock React/GPS camera work while the user is on the map canvas.
+   * (createMap dragstart alone is too late — setCenter mid-drag sticks the cursor.)
+   */
+  useEffect(() => {
+    const el = mapRef.current;
+    if (!mapReady || !el) return;
+
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      beginMapGesture();
+      if (useLocationStore.getState().follow) {
+        setFollow(false);
+      }
+    };
+    const onUp = () => {
+      endMapGesture();
+    };
+
+    const cap: AddEventListenerOptions = { capture: true, passive: true };
+    el.addEventListener("pointerdown", onDown, cap);
+    el.addEventListener("pointerup", onUp, cap);
+    el.addEventListener("pointercancel", onUp, cap);
+    el.addEventListener("lostpointercapture", onUp, cap);
+
+    return () => {
+      el.removeEventListener("pointerdown", onDown, true);
+      el.removeEventListener("pointerup", onUp, true);
+      el.removeEventListener("pointercancel", onUp, true);
+      el.removeEventListener("lostpointercapture", onUp, true);
+    };
+  }, [mapReady, setFollow]);
+
+  /**
    * follow on: keep camera on coords (watch / 현위치). Drag sets follow false.
    * Does not change zoom (RadiusControl camera lock untouched).
    */
   useEffect(() => {
     if (!follow || !coords || !mapReady) return;
+    if (isMapGestureActive()) return;
     const map = mapInstanceRef.current;
     if (!map || !window.Tmapv2?.LatLng) return;
 
@@ -577,6 +623,8 @@ export function MapView() {
       skipCenterSyncRef.current = false;
       return;
     }
+    // Never yank the camera while the user is panning/clicking.
+    if (isMapGestureActive()) return;
 
     map.setCenter(new window.Tmapv2.LatLng(center.lat, center.lng));
   }, [center]);
@@ -658,7 +706,7 @@ export function MapView() {
             absolute
             inset-x-0
             top-[4.75rem]
-            z-[1]
+            z-20
             flex
             justify-start
             px-3
@@ -694,21 +742,14 @@ export function MapView() {
           </div>
         </div>
 
-        {/* flex-col-reverse: anchor at sheet top, grow upward so error banner stays visible */}
+        {/* flex-col-reverse: anchor at sheet top, grow upward so error banner stays visible.
+            Hidden while search UI is open — sheet-offset FABs collide with keyboard/search. */}
         <div
-          className="
-            pointer-events-auto
-            absolute
-            bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)]
-            left-3
-            z-[1]
-            flex
-            flex-col-reverse
-            items-start
-            gap-2
-            md:bottom-4
-            md:left-4
-          "
+          className={[
+            "pointer-events-auto absolute bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)] left-3 z-[1] flex flex-col-reverse items-start gap-2 md:bottom-4 md:left-4",
+            searchUiOpen ? "hidden" : "",
+          ].join(" ")}
+          aria-hidden={searchUiOpen || undefined}
         >
           <RadiusControl />
 
@@ -756,6 +797,7 @@ export function MapView() {
 
             <div className="flex items-center gap-2">
               <SlowChargeFilterFab />
+              <CarPortFilterFab />
               {FEATURES.drivingTestMode ? (
                 <div className="group relative">
                   <button
@@ -852,12 +894,19 @@ export function MapView() {
             bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)]
             right-3
             z-[1]
-            max-w-[calc(100%-6.5rem)]
+            flex
+            w-[min(calc(100%-6.5rem),380px)]
+            flex-col
+            items-stretch
+            gap-2
             md:bottom-4
             md:right-4
-            md:max-w-[calc(100%-1.5rem)]
+            md:w-[min(calc(100%-1.5rem),380px)]
           "
         >
+          <RouteLiveRefresh />
+          <RoutePolyline />
+          <PlaceSummaryBar />
           <StationDetailCard />
         </div>
       </div>

@@ -1496,3 +1496,184 @@ PC 전용으로 되돌릴 때:
 
 ### 다음
 - 실기기에서 메뉴 FAB → 내 차량 → 포트 필터 확인.
+
+## 2026-07-30 — 모바일 하단 네비 (레일·메뉴 FAB 제거)
+
+### 한 일
+- `MobileBottomNav`: compact 전용 하단 탭 바 (`MAIN_NAV` 공유).
+- `AppShell`: PC만 `IconRail`. 모바일 왼쪽 레일·메뉴 on/off FAB 제거. 지도 영역 아래 하단 네비.
+- 탭 선택: 지도→시트 peek, 그 외→half + 시트 내용 교체.
+
+### 결정
+- 모바일 주 메뉴는 상시 하단. 토글 FAB 불필요.
+
+### 다음
+- 실기기에서 하단 네비·시트·지도 FAB 겹침 확인.
+
+## 2026-07-31 — 내 차량 포트 필터 노출 (모바일)
+
+### 한 일
+- CarPanel: 「내 차량 포트만 보기」를 패널 상단으로 이동 (시트 half에서 잘림 방지). 포트 없을 때 체크 비활성.
+- CarPortFilterFab: 완속 FAB 옆에 지도 토글 추가. 임시/등록 차량 포트가 있을 때만 표시, 시트 펼침 없이 on/off.
+- MapView: FAB 조합만 (부트스트랩/반경 미변경).
+
+### 결정
+- 포트 필터는 지도 표면에서도 조작. 차량 선택·등록 UI는 패널 유지.
+
+### 다음
+- 실기기에서 포트 선택 → FAB 노출 → peek에서도 토글·목록/마커 반영 확인.
+
+## 2026-07-31 — CarPanel 컴팩트 (NACS 잘림)
+
+### 한 일
+- CarPanel: 포트 세로 버튼 → 가로 칩, 여백·카피 축소. NACS 안내 한 줄. 스크롤 허용.
+
+### 결정
+- 시트 half에서 필터·포트·NACS가 한눈에 들어오게 세로 밀도 우선.
+
+### 다음
+- 실기기 half 시트에서 NACS 선택 시 안내 문구 잘림 여부 확인.
+
+## 2026-07-31 — 지도 드래그 마우스 붙음/떨림 (시험주행 OFF)
+
+### 한 일
+- 원인: 기본 follow + GPS setCenter, 그리고 PC 반경 Circle destroy/recreate가 드래그 중 TMAP pan과 충돌.
+- lib/map/mapGesture.ts: pointerdown~up(+450ms) 제스처 락.
+- AppShell: watch는 유지, 기본 `follow=false` (현위치 버튼만 chase).
+- MapView: 제스처 중 follow/center sync/내 위치 마커 갱신 스킵.
+- RadiusControl: 제스처 중 원 재생성·cleanup destroy 스킵 (줌 프리셋 로직 미변경).
+- locationStore watch: 제스처 중 coords 미갱신.
+
+### 결정
+- watching ≠ follow. 카메라 추적은 현위치 탭 후에만.
+
+### 다음
+- PC에서 드래그·클릭·반경 원 표시 상태에서 떨림 재발 여부 확인.
+
+## 2026-07-31 — 문서 등급·지도 가이드 통합·mobile 최신화
+
+### 한 일
+- mapguide.md + mapguides.md → **mapguides.md 단일본** (현재 follow/제스처/차량 FAB 반영). mapguide.md는 리다이렉트만.
+- mobile.md 최신화: MobileBottomNav, 메뉴 FAB 제거, CarPanel/FAB, mapGesture, follow 기본 OFF.
+- api/docs/02_BACKEND_GUIDE.md **OBSOLETE** 헤더. BACKEND_GUILD.md·backendguide.md에 S0 우선·폐기 안내.
+- docs/rules/README.md에 S0/S1/S2/S3 등급표.
+
+### 결정
+- 사용자가 둔 docs/rules·important·합의·.cursor/rules가 **정본(S0)**. 해설 가이드는 S0와 충돌 시 가이드를 고친다.
+
+### 다음
+- BE 리포에 obsolete/GUILD 변경 커밋은 담당자 확인 후. 루트 md는 로컬 공유.
+## 2026-07-31 — teamdeveloper UTF-8 append 규칙
+
+### 한 일
+- docs/rules/04_teamdeveloper_log.md: Windows/Agent UTF-8 필수, PowerShell Add-Content 금지, Python/Out-File -Encoding utf8 권장.
+- .cursor/rules/teamdeveloper-log.mdc·docs/rules/README.md에 동일 안내.
+
+### 결정
+- 한글 md(특히 teamdeveloper)는 UTF-8만. CP949 append로 GitHub 깨짐 재발 방지.
+
+### 다음
+- (없음)
+## 2026-07-31 — status sync 로그에 KST 시각
+
+### 한 일
+- api/app/domains/stations/sync.py: sync 로거 전용 Formatter에 %(asctime)s (KST) 적용. 메시지 본문에 datetime을 넣지 않음.
+- 포맷: YYYY-MM-DD HH:MM:SS LEVEL [status-sync] .... --reload 시 핸들러 중복 방지.
+
+### 결정
+- status sync 관련 로그는 전부 시간 표시. 앱 전역 logging 개편은 하지 않음.
+
+### 다음
+- 터미널에서 FK 스킵·upsert 로그에 시각이 붙는지 확인.
+
+## 2026-07-31 — 장소 검색 요약 바 + 길찾기 스텁
+
+### 한 일
+- 
+outeStore: 도착지 preview · startDirections(출발=현위치). FEATURES.tmapRouteFind=false.
+- PlaceSummaryBar: 검색 선택 후 하단 요약(이름·주소·길찾기·닫기) + 목적지 핀. 결과 행마다 버튼 없음.
+- MapSearchBar 선택 시 destination 설정·시트 peek·충전소 선택 해제·줌 18.
+- StationDetailCard 길찾기 → 동일 startDirections. 검색 요약과 상세는 동시에 안 띄움.
+- MapView는 조합만 (PlaceSummaryBar import). TMAP SDK/RadiusControl 미변경.
+
+### 결정
+- 길찾기 CTA는 목록 행이 아니라 선택 후 요약 바/상세 카드. 경로 API·폴리라인은 이후 BE 연동.
+
+### 다음
+- BE TMAP 경로 프록시 + 폴리라인/ETA UI. 	mapRouteFind true.
+
+## 2026-07-31 — 검색 중 FAB·시트 가림 수정
+
+### 한 일
+- 검색 UI 활성 시 모바일 시트를 peek로 접고, 좌측 FAB/반경 컨트롤 숨김 (mapStore.searchUiOpen).
+- 검색 오버레이 z-index 상향. 목록 half/full + 키보드로 FAB이 검색창을 가리던 문제 대응.
+
+### 결정
+- 검색 중에는 시트·FAB보다 검색 입력 우선. 닫기/바깥 탭 후 FAB 복귀.
+
+### 다음
+- 실기기에서 검색 열기·키보드·닫기 동선 확인.
+
+## 2026-07-31 — StationDetailCard ETA + 길찾기 모드 레이아웃
+
+### 한 일
+- StationDetailCard: routeStore distanceM/durationSec/status 연동. 이 충전소 길찾기 시 ETA(분·경로 km) 표시.
+- 길찾기 모드(loading/ready/error): 카드 패딩·min-height 확장, 충전기 타입/직선 km 대신 정사각 ETA 타일 2칸. 버튼 「다시 길찾기」.
+- PlaceSummaryBar: ETA 문구·loading 정리, unimplemented hint 복구. 깨진 WIP import 제거.
+
+### 결정
+- 카드 전체 aspect-square 강제 대신, 길찾기 모드에서 ETA 타일만 aspect-square + 카드 한 단 확장 (모바일·웹 공통). 지도 가림 최소화.
+
+### 다음
+- 실시간 재경로 throttle (자유주행 ON 후 위치 이동 시 km·분·선 갱신).
+
+## 2026-07-31 — 충전소 선택 시 활성 길찾기 유지
+
+### 한 일
+- mapStore.selectStation: status가 loading/ready일 때 clearDestination 호출 안 함 (경로·ETA·폴리라인 유지).
+- preview/idle/error일 때만 장소검색 요약 destination 정리 (상세와 상호배타).
+
+### 결정
+- 자유주행 중 TMAP Marker click은 그대로 동작(DOM nearest-hit만 testMode 가드). 충전소 탭 ≠ 길찾기 해제.
+- 길찾기 해제는 × / clearDestination 명시 동작에만.
+
+### 다음
+- 실시간 재경로 throttle.
+
+## 2026-07-31 — 경로 취소 버튼
+
+### 한 일
+- StationDetailCard: 길찾기 모드에 「경로 취소」+「다시 길찾기」. 다른 충전소 열람 중에도 활성 경로면 「경로 중 · 이름 / 경로 취소」 스트립.
+- PlaceSummaryBar: loading/ready 시 「경로 취소」 버튼. ×도 clearDestination.
+
+### 결정
+- 길찾기 해제는 명시적 취소만 (충전소 탭으로는 안 지움).
+
+### 다음
+- 실시간 재경로 throttle.
+
+## 2026-07-31 — 자유주행 탭 시 현위치 마커 고정 수정
+
+### 한 일
+- MapView: coords→현위치 Marker 이펙트에서 isMapGestureActive 가드 제거. 탭 중 setTestCoords 후에도 setPosition 반영.
+- createMap / SDK 로드 / RadiusControl 카메라·원 가드는 변경 없음 (카메라 chase만 제스처 중 스킵 유지).
+
+### 결정
+- 마커 setPosition은 팬 전투 대상이 아님. 제스처 hold(~450ms) 동안 스킵하면 coords가 안 바뀌어 마커가 영구 고정됨 → 주행테스트 체감 저하.
+
+### 다음
+- 자유주행 ON → 지도 탭 → 마커 이동 확인. 이후 재경로 throttle.
+
+## 2026-07-31 — 실시간 재경로 throttle
+
+### 한 일
+- routeStore: maybeRefreshRoute — status=ready일 때 현위치 기준 **150m 또는 4초**(미만은 trailing). silent refresh(구 path/ETA 유지, 실패 시 유지).
+- RouteLiveRefresh: coords 구독 → maybeRefreshRoute. MapView는 조합만.
+- startDirections는 기존처럼 loading UI. clearDestination 시 in-flight 무효화.
+
+### 결정
+- stations throttle(200m/4초)과 유사, 주행테스트 체감용 150m. 수치 실차 후 조정 가능.
+- 1단계 길찾기(출발=현위치·폴리라인·ETA·취소·자유주행 연동 throttle) 골격 완료. 턴바이턴/음성/이탈 재탐색 UX는 이후.
+
+### 다음
+- 자유주행 ON → 길찾기 → 탭 이동 → km·분·선 갱신 확인.

@@ -84,7 +84,9 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    // Default: GPS watch on (calc origin follows real GPS). 시험주행만 fake로 바꿈.
+    // GPS watch on for marker/list origin — but do NOT chase camera (follow).
+    // Default follow caused setCenter vs drag fight → cursor-stuck jitter on PC.
+    // Camera follow only after 현위치 버튼 (MapView).
     void locateOnce()
       .catch(() => {
         /* stay on DAEGU_CENTER; error lives in locationStore */
@@ -93,7 +95,7 @@ export function AppShell() {
         if (!FEATURES.locationWatch) return;
         if (useLocationStore.getState().testMode) return;
         startWatch();
-        setFollow(true);
+        setFollow(false);
       });
   }, [locateOnce, startWatch, setFollow]);
 

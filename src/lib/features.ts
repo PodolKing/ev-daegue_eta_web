@@ -13,4 +13,6 @@ export const FEATURES = {
   drivingTestMode: true,
   /** BE stations 반경(Haversine) 필터 — UI 뼈대만 있는 동안 false */
   radiusFilter: false,
+  /** TMAP 자동차 경로(길찾기) — 출발=현위치, 도착=장소/충전소 */
+  tmapRouteFind: true,
 } as const;

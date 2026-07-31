@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { RadiusKm } from "@/types/station";
+import { isMapGestureActive } from "@/lib/map/mapGesture";
 import { useMapStore } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
 
@@ -37,6 +38,8 @@ export function RadiusControl() {
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.Tmapv2 || !map) return;
+    // Destroy/recreate mid-drag breaks TMAP mouse pan (stuck/jitter under cursor).
+    if (isMapGestureActive()) return;
 
     // Origin: 현위치(coords) first, else map center. Coords move → redraw circle only
     // (camera zoom stays 1/2/3 tap only — TMAP lock).
@@ -113,6 +116,8 @@ export function RadiusControl() {
     }
 
     return () => {
+      // Mid-drag cleanup must not tear down the Circle (breaks TMAP pan).
+      if (isMapGestureActive()) return;
       if (circleRef.current) {
         circleRef.current.setMap(null);
         circleRef.current = null;

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { stationMatchesSlowFilter } from "@/lib/chargerTypes";
 import type { RadiusKm, Station } from "@/types/station";
 import { useLocationStore } from "@/stores/locationStore";
+import { useRouteStore } from "@/stores/routeStore";
 
 export const DAEGU_CENTER = { lat: 35.8714, lng: 128.6014 };
 
@@ -69,6 +70,11 @@ type MapState = {
   /** Mobile bottom station list sheet snap. */
   mobileSheetSnap: MobileSheetSnap;
   /**
+   * Compact search bar open / typing — hide FABs that sit on `--map-sheet-offset`
+   * so they do not cover the search field when the keyboard is up.
+   */
+  searchUiOpen: boolean;
+  /**
    * 완속(02/08) 포함 여부. false(기본) = 그외 타입만 목록/마커에 표시.
    */
   includeSlow: boolean;
@@ -82,6 +88,7 @@ type MapState = {
   setStations: (items: Station[]) => void;
   setSelectedId: (id: string | null) => void;
   setMobileSheetSnap: (snap: MobileSheetSnap) => void;
+  setSearchUiOpen: (open: boolean) => void;
   /** Convenience: true → half, false → peek (detail card 등). */
   setMobileListOpen: (open: boolean) => void;
   setIncludeSlow: (v: boolean) => void;
@@ -108,6 +115,7 @@ export const useMapStore = create<MapState>((set, get) => ({
   stations: [],
   selectedId: null,
   mobileSheetSnap: "half",
+  searchUiOpen: false,
   includeSlow: false,
   loading: false,
   error: null,
@@ -119,6 +127,7 @@ export const useMapStore = create<MapState>((set, get) => ({
   setStations: (stations) => set({ stations }),
   setSelectedId: (selectedId) => set({ selectedId }),
   setMobileSheetSnap: (mobileSheetSnap) => set({ mobileSheetSnap }),
+  setSearchUiOpen: (searchUiOpen) => set({ searchUiOpen }),
   setMobileListOpen: (open) =>
     set({ mobileSheetSnap: open ? "half" : "peek" }),
   setIncludeSlow: (includeSlow) => {
@@ -143,6 +152,11 @@ export const useMapStore = create<MapState>((set, get) => ({
     const wasExpanded = mobileSheetSnap !== "peek";
 
     useLocationStore.getState().setFollow(false);
+    // Place-search preview만 닫기. 길찾기 중(loading/ready)에는 경로·ETA·선 유지.
+    const route = useRouteStore.getState();
+    if (route.status !== "loading" && route.status !== "ready") {
+      route.clearDestination();
+    }
 
     set({
       selectedId: id,

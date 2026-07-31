@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isMapGestureActive } from "@/lib/map/mapGesture";
 import type {
   LatLng,
   LocationSource,
@@ -58,6 +59,29 @@ const GPS_OPTIONS_WATCH: PositionOptions = {
   timeout: 15000,
   maximumAge: 2000,
 };
+
+/** Ignore GPS micro-jitter so follow camera does not rubber-band / shake. */
+const WATCH_MOVE_MIN_M = 12;
+
+/** Collapse pointer-tap + SDK click double-fires in test mode. */
+const TEST_COORDS_DEDUPE_MS = 80;
+
+function approxDistanceM(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const toRad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * toRad;
+  const dLng = (b.lng - a.lng) * toRad;
+  const lat1 = a.lat * toRad;
+  const lat2 = b.lat * toRad;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+let lastTestCoordsAt = 0;
 
 function geolocationErrorMessage(code?: number): string {
   switch (code) {
@@ -176,12 +200,32 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       (pos) => {
         // Drop callbacks after stopWatch / testMode
         if (get().testMode || get().watchId !== id) return;
+        // Mid-drag GPS must not move marker/circle/store (TMAP drag breaks).
+        if (isMapGestureActive()) return;
+
+        const next = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
+        const prev = get().coords;
+        // Tiny GPS noise + follow=setCenter → map sticks under cursor and jitters.
+        if (
+          prev &&
+          get().source === "gps" &&
+          approxDistanceM(prev, next) < WATCH_MOVE_MIN_M
+        ) {
+          set({
+            accuracyM: pos.coords.accuracy ?? null,
+            headingDeg: pos.coords.heading ?? null,
+            status: "watching",
+            error: null,
+            isWatching: true,
+          });
+          return;
+        }
 
         set({
-          coords: {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          },
+          coords: next,
           accuracyM: pos.coords.accuracy ?? null,
           headingDeg: pos.coords.heading ?? null,
           source: "gps",
@@ -224,6 +268,12 @@ export const useLocationStore = create<LocationState>((set, get) => ({
 
   setTestCoords: (coords) => {
     if (!get().testMode) return;
+    const now = Date.now();
+    // pointerup + TMAP click often both fire; keep the first only.
+    if (now - lastTestCoordsAt < TEST_COORDS_DEDUPE_MS) {
+      return;
+    }
+    lastTestCoordsAt = now;
     set({
       coords,
       source: "test",

@@ -14,6 +14,7 @@ import {
 } from "@/lib/tmap/searchPlaces";
 import { useMapStore } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
+import { useRouteStore } from "@/stores/routeStore";
 import { useCompactLayout } from "@/lib/device/useCompactLayout";
 import { FEATURES } from "@/lib/features";
 import {
@@ -24,6 +25,9 @@ import {
 type MapSearchBarProps = {
   onPlaceSelect?: (place: TmapPlaceResult) => void;
 };
+
+/** Place pick: closer street view (tighter than 현위치/1km = 16). */
+const PLACE_SEARCH_ZOOM = 18;
 
 function SearchIcon({ size = 18 }: { size?: number }) {
   return (
@@ -47,6 +51,11 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
 
   const center = useMapStore((s) => s.center);
   const setCenter = useMapStore((s) => s.setCenter);
+  const setZoom = useMapStore((s) => s.setZoom);
+  const setSelectedId = useMapStore((s) => s.setSelectedId);
+  const setMobileSheetSnap = useMapStore((s) => s.setMobileSheetSnap);
+  const setSearchUiOpen = useMapStore((s) => s.setSearchUiOpen);
+  const setDestination = useRouteStore((s) => s.setDestination);
   const setFollow = useLocationStore((s) => s.setFollow);
 
   const [query, setQuery] = useState("");
@@ -54,6 +63,7 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
   const [open, setOpen] = useState(false);
   /** Compact only: collapsed = icon, open = original pill bar. Desktop always on. */
   const [searchOpen, setSearchOpen] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,10 +118,32 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
     if (!isCompact) setSearchOpen(false);
   }, [isCompact]);
 
+  /**
+   * Searching with sheet half/full parks FABs mid-screen; keyboard then covers
+   * the search field. Collapse sheet + flag MapView to hide FABs while active.
+   */
+  useEffect(() => {
+    const active = isCompact ? searchOpen : inputFocused || open;
+    setSearchUiOpen(active);
+    if (active) setMobileSheetSnap("peek");
+  }, [
+    isCompact,
+    searchOpen,
+    inputFocused,
+    open,
+    setSearchUiOpen,
+    setMobileSheetSnap,
+  ]);
+
+  useEffect(() => {
+    return () => setSearchUiOpen(false);
+  }, [setSearchUiOpen]);
+
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) {
         setOpen(false);
+        setInputFocused(false);
         // Compact: tap map/FAB → collapse pill bar back to icon
         if (isCompact) setSearchOpen(false);
       }
@@ -132,8 +164,28 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
     setQuery(place.name);
     setOpen(false);
     setSearchOpen(false);
+    setInputFocused(false);
     setFollow(false);
+    setSelectedId(null);
+    setMobileSheetSnap("peek");
+    setDestination({
+      name: place.name,
+      address: place.address,
+      lat: place.lat,
+      lng: place.lng,
+    });
     setCenter({ lat: place.lat, lng: place.lng });
+    setZoom(PLACE_SEARCH_ZOOM);
+    // Store zoom alone does not move TMAP — set camera imperatively (like 현위치).
+    const map = useMapStore.getState().map;
+    if (map && window.Tmapv2?.LatLng) {
+      if (typeof map.setCenter === "function") {
+        map.setCenter(new window.Tmapv2.LatLng(place.lat, place.lng));
+      }
+      if (typeof map.setZoom === "function") {
+        map.setZoom(PLACE_SEARCH_ZOOM);
+      }
+    }
     onPlaceSelect?.(place);
     inputRef.current?.blur();
   };
@@ -219,7 +271,11 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
           setQuery(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setInputFocused(true);
+          setOpen(true);
+        }}
+        onBlur={() => setInputFocused(false)}
         placeholder={
           !FEATURES.tmapPlaceSearch ? "장소 검색 (미구현)" : "장소·주소 검색"
         }
@@ -237,13 +293,13 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
         >
           ✕
         </button>
-      ) : null}
-      {isCompact ? (
+      ) : isCompact ? (
         <button
           type="button"
           onClick={() => {
             setSearchOpen(false);
             setOpen(false);
+            setInputFocused(false);
             inputRef.current?.blur();
           }}
           className="shrink-0 rounded-[var(--radius-pill)] px-2 py-1 text-[12px] font-medium text-[var(--text-secondary)] touch-manipulation"
@@ -251,14 +307,15 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
         >
           닫기
         </button>
-      ) : (
+      ) : null}
+      {!isCompact ? (
         <button
           type="submit"
           className="shrink-0 rounded-[var(--radius-pill)] bg-[var(--accent)] px-3 py-1.5 text-[12px] font-semibold text-white"
         >
           검색
         </button>
-      )}
+      ) : null}
     </form>
   );
 
