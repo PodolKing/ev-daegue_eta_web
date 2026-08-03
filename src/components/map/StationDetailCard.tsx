@@ -236,16 +236,29 @@ export function StationDetailCard() {
       ) : null}
 
       {routeActive && !forThisStation && routeDest ? (
-        <div className="mt-3 flex items-center justify-between gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2">
-          <p className="min-w-0 truncate text-[11px] text-[var(--text-muted)]">
+        <div className="mt-3 flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              if (routeDest.stationId) {
+                // 카메라 이동 없이 길찾기 카드만 복원 (자유주행 중 selectStation 예외와 동일 dest).
+                setSelectedId(routeDest.stationId);
+              } else {
+                setSelectedId(null);
+              }
+            }}
+            className="min-w-0 flex-1 truncate rounded-[var(--radius-md)] px-1.5 py-1 text-left text-[11px] font-medium text-[var(--text)] touch-manipulation hover:bg-white"
+            title="길찾기 다시 보기"
+          >
             경로 중 · {routeDest.name}
-          </p>
+            <span className="ml-1 text-[var(--accent)]">펼치기</span>
+          </button>
           <button
             type="button"
             onClick={() => clearDestination()}
             className="shrink-0 rounded-[var(--radius-pill)] px-2.5 py-1 text-[11px] font-semibold text-[var(--danger)] touch-manipulation hover:bg-white"
           >
-            경로 취소
+            안내종료
           </button>
         </div>
       ) : null}
@@ -257,7 +270,7 @@ export function StationDetailCard() {
             onClick={() => clearDestination()}
             className="flex flex-1 items-center justify-center rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)] touch-manipulation"
           >
-            경로 취소
+            안내종료
           </button>
         ) : null}
         <button
@@ -278,21 +291,10 @@ export function StationDetailCard() {
         >
           {routeMode && routeStatus === "ready" ? "다시 길찾기" : "길찾기"}
           <span aria-hidden>›</span>
-          {!FEATURES.tmapRouteFind ? (
-            <span className="absolute -right-1 -top-1">
-              <UnimplementedBadge />
-            </span>
-          ) : null}
+        
         </button>
       </div>
-      {showRouteUnimplemented ? (
-        <div className="mt-3">
-          <UnimplementedHint>
-            TMAP 자동차 경로(길찾기) API가 아직 연결되지 않았습니다. 출발=현위치. (
-            <code className="text-[11px]">FEATURES.tmapRouteFind</code>)
-          </UnimplementedHint>
-        </div>
-      ) : null}
+      
     </article>
   );
 }

@@ -8,6 +8,7 @@ import { StationDetailCard } from "@/components/map/StationDetailCard";
 import { PlaceSummaryBar } from "@/components/map/PlaceSummaryBar";
 import { RoutePolyline } from "@/components/map/RoutePolyline";
 import { RouteLiveRefresh } from "@/components/map/RouteLiveRefresh";
+import { myLocationMarkerIcon } from "@/lib/tmap/roleMarkers";
 import { MapSearchBar } from "@/components/map/MapSearchBar";
 import { UnimplementedBadge } from "@/components/ui/Unimplemented";
 import { FEATURES } from "@/lib/features";
@@ -406,6 +407,7 @@ export function MapView() {
         position: latLng,
         map,
         title: "현위치",
+        icon: myLocationMarkerIcon(),
       });
     } else {
       myLocationMarkerRef.current.setPosition(latLng);
@@ -726,8 +728,8 @@ export function MapView() {
                 role="status"
               >
                 <p className="min-w-0 flex-1 leading-snug">
-                  자유주행: 탭/클릭으로 위치 · 드래그·핀치로 지도 (반경 원은
-                  잠시 숨김)
+                  자유주행: 탭으로 위치 · 드래그·핀치로 지도 · 마커만
+                  잠금(목록은 가능)
                 </p>
                 <button
                   type="button"

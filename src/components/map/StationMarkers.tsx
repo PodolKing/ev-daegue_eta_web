@@ -278,6 +278,7 @@ export default function StationMarkers() {
         });
 
         const onPick = () => {
+          if (useLocationStore.getState().testMode) return;
           useMapStore.getState().selectStation(station.stationId);
         };
 

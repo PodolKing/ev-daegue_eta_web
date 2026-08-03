@@ -1677,3 +1677,64 @@ outeStore: 도착지 preview · startDirections(출발=현위치). FEATURES.tmap
 
 ### 다음
 - 자유주행 ON → 길찾기 → 탭 이동 → km·분·선 갱신 확인.
+
+## 2026-07-31 — mapguides.md 길찾기 1단계 반영
+
+### 한 일
+- 루트 mapguides.md: routeStore·ETA·Polyline·LiveRefresh throttle·경로 취소·selectStation 유지·마커 제스처 가드 수정·시나리오 G–I 갱신.
+
+### 결정
+- S2 해설은 mapguides.md 단일. mapguide.md는 리다이렉트 유지.
+
+### 다음
+- 실기기에서 자유주행+재경로 체감 확인.
+
+## 2026-08-03 — 자유주행 중 충전소 선택 잠금 + 길찾기 UI 유지
+
+### 한 일
+- 자유주행(testMode) ON: selectStation / Marker click / 목록 행으로 충전소 선택 불가(활성 경로 목적지 복원만 예외).
+- StationDetailCard: 다른 충전소 열람 시 「경로 중」 스트립에 펼치기(목적지 선택 복원).
+- PlaceSummaryBar: 길찾기 loading/ready일 때 StationDetailCard와 같은 ETA 타일 레이아웃 유지(카드 × 후에도 안 줄어듦).
+
+### 결정
+- 자유주행 핵심 제스처=맵 탭 위치 지정. 충전소·상세 선택은 충돌 원인이라 잠금. 반경/OFF/지도 팬·핀치는 유지.
+- 길찾기 축소 체감은 (1) 타 충전소 탭 → 경로 중 스트립 (2) 상세 × → 얇은 요약바. 스트립 펼치기 + 요약바 ETA 확장으로 대응.
+
+### 다음
+- 실기기에서 자유주행+길찾기 탭 이동 시 충전소 안 열림·ETA 유지 확인.
+
+## 2026-08-03 — 자유주행: 목록 선택은 유지 (마커만 잠금)
+
+### 한 일
+- selectStation / StationList 잠금 롤백. 자유주행 중에도 목록·시트로 충전소 선택·길찾기 가능.
+- 맵 Marker click / nearest-hit만 testMode에서 무시 (맵 탭=가짜 현위치 충돌 방지).
+- 길찾기 ETA 유지·「경로 중 펼치기」는 그대로.
+
+### 결정
+- 잠글 대상은 지도 위 마커 탭뿐. 리스트는 의도적 선택이므로 연다.
+
+### 다음
+- 자유주행: 목록으로 목적지 → 길찾기 → 맵 탭 이동 시나리오 확인.
+
+## 2026-08-03 — 길찾기 중 버튼 카피: 경로 취소 → 안내종료
+
+### 한 일
+- StationDetailCard / PlaceSummaryBar: 활성 경로(loading·ready) 종료 CTA를 「안내종료」로 통일.
+
+### 결정
+- ETA 1분 이하 등 조건부 문구는 안 씀(0분 반올림·짧은 km에서만 바뀌면 체감 차이 없고 기준만 복잡). 안내 중엔 항상 안내종료.
+
+### 다음
+- 없음(카피만).
+
+## 2026-08-03 — 현위치/도착 마커 형태 구분
+
+### 한 일
+- lib/tmap/roleMarkers.ts: 현위치=파란 GPS 원, 도착=빨간 핀(SVG data URL + MarkerImage).
+- MapView 현위치 Marker·PlaceSummaryBar 검색 도착 Marker에 적용. loadSdk/createMap/RadiusControl 미변경.
+
+### 결정
+- 색만 다른 핀보다 원 vs 핀이 출발/도착 구분에 유리. 충전소 길찾기는 기존 충전소 마커 유지(검색 도착 핀만 변경).
+
+### 다음
+- 길찾기 중 충전소 목적지에 도착 핀 오버레이가 필요하면 별도.

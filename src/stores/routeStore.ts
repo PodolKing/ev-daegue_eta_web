@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { FEATURES } from "@/lib/features";
 import { fetchCarRoute, type RoutePoint } from "@/lib/tmap/fetchCarRoute";
 import { useLocationStore } from "@/stores/locationStore";
+import { useMapStore } from "@/stores/mapStore";
 
 /** Destination for place preview / directions (origin = 현위치). */
 export type RouteDestination = {
@@ -83,6 +84,22 @@ function runCarRouteFetch(opts: {
   const reqId = ++routeReqId;
 
   if (mode === "start") {
+    useLocationStore.getState().setFollow(false);
+  
+    const ROUTE_FOCUS_ZOOM = 17; // 현위치와 동일 (검색 18 아님)
+    useLocationStore.getState().setFollow(true); // 현위치 탭과 동일하면 추천
+    const { map, setCenter, setZoom } = useMapStore.getState();
+    setCenter({ lat: origin.lat, lng: origin.lng });
+    setZoom(ROUTE_FOCUS_ZOOM);
+    if (map && window.Tmapv2?.LatLng) {
+      if (typeof map.setCenter === "function") {
+        map.setCenter(new window.Tmapv2.LatLng(origin.lat, origin.lng));
+      }
+      if (typeof map.setZoom === "function") {
+        map.setZoom(ROUTE_FOCUS_ZOOM);
+      }
+    }
+  
     clearRefreshTimer();
     set({
       status: "loading",
