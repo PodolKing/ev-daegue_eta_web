@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/Unimplemented";
 import { useLocationStore } from "@/stores/locationStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useRecommendStore } from "@/stores/recommendStore";
 import { useRouteStore } from "@/stores/routeStore";
 
 declare global {
@@ -28,6 +29,9 @@ export function PlaceSummaryBar() {
   const error = useRouteStore((s) => s.error);
   const clearDestination = useRouteStore((s) => s.clearDestination);
   const startDirections = useRouteStore((s) => s.startDirections);
+  const loadRecommendations = useRecommendStore((s) => s.loadForDestination);
+  const recommendActive = useRecommendStore((s) => s.active);
+  const recommendLoading = useRecommendStore((s) => s.loading);
   const selectedId = useMapStore((s) => s.selectedId);
   const setSelectedId = useMapStore((s) => s.setSelectedId);
   const setCenter = useMapStore((s) => s.setCenter);
@@ -104,6 +108,20 @@ export function PlaceSummaryBar() {
     if (map && window.Tmapv2?.LatLng && typeof map.setCenter === "function") {
       map.setCenter(new window.Tmapv2.LatLng(destination.lat, destination.lng));
     }
+  };
+
+  /** AI 점수 목록·추천 마커만 — 주변 stations 조회 없음. 길찾기 전 선택용. */
+  const runAiRecommend = () => {
+    useLocationStore.getState().setFollow(false);
+    setCenter({ lat: destination.lat, lng: destination.lng });
+    if (map && window.Tmapv2?.LatLng && typeof map.setCenter === "function") {
+      map.setCenter(new window.Tmapv2.LatLng(destination.lat, destination.lng));
+    }
+    void loadRecommendations({
+      lat: destination.lat,
+      lng: destination.lng,
+      etaMinutes: 15,
+    });
   };
 
   // Thin strip — map stays usable; route/destination kept.
@@ -280,6 +298,25 @@ export function PlaceSummaryBar() {
               ].join(" ")}
             >
               안내종료
+            </button>
+          ) : null}
+          {!routeActive ? (
+            <button
+              type="button"
+              onClick={runAiRecommend}
+              disabled={recommendLoading}
+              className={[
+                "relative shrink-0 rounded-[var(--radius-pill)] border border-[var(--accent)] bg-white font-semibold text-[var(--accent)] touch-manipulation hover:bg-[var(--accent-soft)] disabled:opacity-60",
+                routeExpanded
+                  ? "flex-1 px-4 py-2.5 text-[13px]"
+                  : "px-3.5 py-2 text-[12px]",
+              ].join(" ")}
+            >
+              {recommendLoading
+                ? "AI…"
+                : recommendActive
+                  ? "AI 다시"
+                  : "AI 추천"}
             </button>
           ) : null}
           <button

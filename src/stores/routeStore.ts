@@ -3,6 +3,7 @@ import { FEATURES } from "@/lib/features";
 import { fetchCarRoute, type RoutePoint } from "@/lib/tmap/fetchCarRoute";
 import { useLocationStore } from "@/stores/locationStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useRecommendStore } from "@/stores/recommendStore";
 
 /** Destination for place preview / directions (origin = 현위치). */
 export type RouteDestination = {
@@ -169,6 +170,7 @@ export const useRouteStore = create<RouteState>((set, get) => ({
     clearRefreshTimer();
     lastRouteFetch = null;
     useMapStore.getState().setStationsAnchor(null);
+    useRecommendStore.getState().clear();
     set({
       destination,
       status: "preview",
@@ -186,6 +188,7 @@ export const useRouteStore = create<RouteState>((set, get) => ({
     if (!opts?.keepStationsAnchor) {
       useMapStore.getState().setStationsAnchor(null);
     }
+    useRecommendStore.getState().clear();
     set({
       destination: null,
       status: "idle",
@@ -202,6 +205,7 @@ export const useRouteStore = create<RouteState>((set, get) => ({
 
     // 길찾기 시작 후엔 도착지 주변 조회 앵커·버튼 해제 → 현위치 기준으로 복귀.
     useMapStore.getState().setStationsAnchor(null);
+    useRecommendStore.getState().clear();
 
     if (dest) {
       set({

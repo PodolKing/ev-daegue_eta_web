@@ -4,9 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
 import { useRouteStore } from "@/stores/routeStore";
+import { useRecommendStore } from "@/stores/recommendStore";
 import { RadiusControl } from "@/components/map/RadiusControl";
 import { StationDetailCard } from "@/components/map/StationDetailCard";
 import { PlaceSummaryBar } from "@/components/map/PlaceSummaryBar";
+import { RecommendStationPanel } from "@/components/map/RecommendStationPanel";
+import RecommendMarkers from "@/components/map/RecommendMarkers";
 import { RoutePolyline } from "@/components/map/RoutePolyline";
 import { RouteLiveRefresh } from "@/components/map/RouteLiveRefresh";
 import { myLocationMarkerIcon } from "@/lib/tmap/roleMarkers";
@@ -95,9 +98,12 @@ export function MapView() {
   const setMap = useMapStore((s) => s.setMap);
   const searchUiOpen = useMapStore((s) => s.searchUiOpen);
   const routeStatus = useRouteStore((s) => s.status);
-  /** 길찾기 중엔 반경 UI 숨김 — PlaceSummary와 겹침 방지. preview는 유지. */
+  const recommendActive = useRecommendStore((s) => s.active);
+  /** 길찾기 중·AI 추천 중엔 반경 UI 숨김. preview(일반)는 유지. */
   const hideRadiusForRoute =
-    routeStatus === "loading" || routeStatus === "ready";
+    routeStatus === "loading" ||
+    routeStatus === "ready" ||
+    recommendActive;
 
   const coords = useLocationStore((s) => s.coords);
   const locationError = useLocationStore((s) => s.error);
@@ -728,6 +734,7 @@ export function MapView() {
       <div className="absolute inset-0 z-0 overflow-hidden">
         <div id={MAP_ELEMENT_ID} ref={mapRef} className="h-full w-full" />
         <StationMarkers />
+        <RecommendMarkers />
       </div>
 
       {/* UI chrome — sibling stacking context above the map trap */}
@@ -947,6 +954,7 @@ export function MapView() {
         >
           <RouteLiveRefresh />
           <RoutePolyline />
+          <RecommendStationPanel />
           <PlaceSummaryBar />
           <StationDetailCard />
         </div>
