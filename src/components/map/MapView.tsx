@@ -94,6 +94,10 @@ export function MapView() {
   const setZoom = useMapStore((s) => s.setZoom);
   const setMap = useMapStore((s) => s.setMap);
   const searchUiOpen = useMapStore((s) => s.searchUiOpen);
+  const routeStatus = useRouteStore((s) => s.status);
+  /** 길찾기 중엔 반경 UI 숨김 — PlaceSummary와 겹침 방지. preview는 유지. */
+  const hideRadiusForRoute =
+    routeStatus === "loading" || routeStatus === "ready";
 
   const coords = useLocationStore((s) => s.coords);
   const locationError = useLocationStore((s) => s.error);
@@ -788,7 +792,7 @@ export function MapView() {
           ].join(" ")}
           aria-hidden={searchUiOpen || undefined}
         >
-          <RadiusControl />
+          {!hideRadiusForRoute ? <RadiusControl /> : null}
 
           <div className="flex flex-col items-start gap-2">
             <div className="relative">
@@ -932,7 +936,7 @@ export function MapView() {
             right-3
             z-[1]
             flex
-            w-[min(calc(100%-6.5rem),380px)]
+            w-[min(calc(100%-8.5rem),380px)]
             flex-col
             items-stretch
             gap-2

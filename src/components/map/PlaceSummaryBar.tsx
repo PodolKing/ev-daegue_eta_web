@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FEATURES } from "@/lib/features";
 import { destinationMarkerIcon } from "@/lib/tmap/roleMarkers";
 import {
@@ -20,6 +20,7 @@ declare global {
 /**
  * After place search select: compact summary + 길찾기 (origin = 현위치).
  * Shared startDirections also used by StationDetailCard.
+ * Minimize collapses UI only — does NOT clearDestination (안내종료만 종료).
  */
 export function PlaceSummaryBar() {
   const destination = useRouteStore((s) => s.destination);
@@ -34,6 +35,7 @@ export function PlaceSummaryBar() {
   const setMobileSheetSnap = useMapStore((s) => s.setMobileSheetSnap);
   const map = useMapStore((s) => s.map);
   const markerRef = useRef<any>(null);
+  const [minimized, setMinimized] = useState(false);
   const distanceM = useRouteStore((s) => s.distanceM);
   const durationSec = useRouteStore((s) => s.durationSec);
   const etaKm =
@@ -44,6 +46,11 @@ export function PlaceSummaryBar() {
     distanceM !== null && durationSec !== null
       ? `${etaKm} km · 약 ${etaMin}분`
       : null;
+
+  // New place → show full card again.
+  useEffect(() => {
+    setMinimized(false);
+  }, [destination?.lat, destination?.lng, destination?.name]);
 
   // Destination pin on TMAP (search pick). Cleared with destination.
   useEffect(() => {
@@ -99,6 +106,37 @@ export function PlaceSummaryBar() {
     }
   };
 
+  // Thin strip — map stays usable; route/destination kept.
+  if (minimized) {
+    return (
+      <div className="pointer-events-auto w-full max-w-[min(100%,280px)] animate-fade-up">
+        <button
+          type="button"
+          onClick={() => setMinimized(false)}
+          className="flex w-full items-center gap-2 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white/95 px-3 py-2 shadow-[var(--shadow-md)] backdrop-blur-md touch-manipulation"
+          aria-label="도착지 요약 펼치기"
+        >
+          <span
+            className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold text-[var(--text)]"
+            style={{ fontFamily: "var(--font-display), sans-serif" }}
+          >
+            {destination.name}
+          </span>
+          {routeActive && (etaMin || etaKm) ? (
+            <span className="shrink-0 text-[12px] font-semibold text-[var(--accent)]">
+              {[etaMin ? `${etaMin}분` : null, etaKm ? `${etaKm}km` : null]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          ) : null}
+          <span className="shrink-0 text-[11px] font-semibold text-[var(--text-secondary)]">
+            펼치기
+          </span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="pointer-events-auto w-full max-w-[min(100%,280px)] animate-fade-up">
       <div
@@ -113,7 +151,7 @@ export function PlaceSummaryBar() {
               Directions
             </p>
           ) : null}
-      
+
           <div
             className={[
               "flex min-w-0 items-center gap-2",
@@ -138,16 +176,16 @@ export function PlaceSummaryBar() {
                 className="inline-flex h-7 shrink-0 items-center rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2 text-[11px] font-semibold text-[var(--text-secondary)] touch-manipulation hover:bg-[var(--surface-muted)]"
                 aria-label="도착지 주변 충전소 조회"
               >
-                주변 충전소 조회
+                주변
               </button>
             ) : null}
             <button
               type="button"
-              onClick={() => clearDestination()}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[15px] leading-none text-[var(--text-muted)] touch-manipulation hover:text-[var(--text)]"
-              aria-label={routeActive ? "안내종료" : "장소 요약 닫기"}
+              onClick={() => setMinimized(true)}
+              className="inline-flex h-7 shrink-0 items-center rounded-[var(--radius-pill)] border border-[var(--border)] bg-[var(--surface-muted)] px-2 text-[11px] font-semibold text-[var(--text-secondary)] touch-manipulation hover:bg-white hover:text-[var(--text)]"
+              aria-label="지도 보기 — 요약 접기"
             >
-              ×
+              접기
             </button>
           </div>
           <p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
@@ -202,21 +240,33 @@ export function PlaceSummaryBar() {
           </p>
         ) : null}
 
-        {/* 메인 CTA 행 — preview는 길찾기만(내용 폭). 이후 충전확률을 옆에 shrink-0로 추가하면 됨. */}
         <div
           className={[
             "flex items-center gap-2",
             routeExpanded ? "mt-3" : "mt-2 justify-end",
           ].join(" ")}
         >
-          {destination.stationId && !routeExpanded ? (
-            <button
-              type="button"
-              onClick={() => setSelectedId(destination.stationId!)}
-              className="mr-auto shrink-0 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[var(--text-secondary)] touch-manipulation hover:bg-[var(--surface-muted)]"
-            >
-              펼치기
-            </button>
+          {!routeActive || (destination.stationId && !routeExpanded) ? (
+            <div className="mr-auto flex items-center gap-2">
+              {destination.stationId && !routeExpanded ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(destination.stationId!)}
+                  className="shrink-0 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[var(--text-secondary)] touch-manipulation hover:bg-[var(--surface-muted)]"
+                >
+                  펼치기
+                </button>
+              ) : null}
+              {!routeActive ? (
+                <button
+                  type="button"
+                  onClick={() => clearDestination()}
+                  className="shrink-0 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[var(--text-secondary)] touch-manipulation hover:bg-[var(--surface-muted)]"
+                >
+                  닫기
+                </button>
+              ) : null}
+            </div>
           ) : null}
           {routeActive ? (
             <button
