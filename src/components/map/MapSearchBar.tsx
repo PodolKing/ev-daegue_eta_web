@@ -47,9 +47,10 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const skipDebouncedSearchRef = useRef(false);
   const isCompact = useCompactLayout();
 
-  const center = useMapStore((s) => s.center);
+
   const setCenter = useMapStore((s) => s.setCenter);
   const setZoom = useMapStore((s) => s.setZoom);
   const setSelectedId = useMapStore((s) => s.setSelectedId);
@@ -87,7 +88,10 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
       setLoading(true);
       setError(null);
       try {
-        const items = await searchTmapPlaces(trimmed, center);
+        const items = await searchTmapPlaces(
+          trimmed,
+          useMapStore.getState().center,
+        );
         setResults(items);
         if (items.length === 0) {
           setError("검색 결과가 없습니다");
@@ -99,7 +103,7 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
         setLoading(false);
       }
     },
-    [center],
+  [],
   );
 
   useEffect(() => {
@@ -107,6 +111,10 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
       setResults([]);
       setError(null);
       return;
+    }
+    if (skipDebouncedSearchRef.current) {
+      skipDebouncedSearchRef.current = false;
+      return; // 재검색·setOpen(true) 안 함
     }
     const t = window.setTimeout(() => {
       void runSearch(query);
@@ -161,6 +169,9 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
   }, [searchOpen, isCompact]);
 
   const selectPlace = (place: TmapPlaceResult) => {
+    skipDebouncedSearchRef.current = true;
+    setResults([]);
+    setError(null);
     setQuery(place.name);
     setOpen(false);
     setSearchOpen(false);

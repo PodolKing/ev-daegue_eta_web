@@ -29,6 +29,7 @@ export function RadiusControl() {
   const setZoom = useMapStore((s) => s.setZoom);
   const setCenter = useMapStore((s) => s.setCenter);
   const coords = useLocationStore((s) => s.coords);
+  const stationsAnchor = useMapStore((s) => s.stationsAnchor);
   const testMode = useLocationStore((s) => s.testMode);
 
   const circleRef = useRef<any>(null);
@@ -41,10 +42,10 @@ export function RadiusControl() {
     // Destroy/recreate mid-drag breaks TMAP mouse pan (stuck/jitter under cursor).
     if (isMapGestureActive()) return;
 
-    // Origin: 현위치(coords) first, else map center. Coords move → redraw circle only
-    // (camera zoom stays 1/2/3 tap only — TMAP lock).
-    const lat = coords?.lat ?? mapCenter.lat;
-    const lng = coords?.lng ?? mapCenter.lng;
+    // Origin: 도착지 stationsAnchor → 현위치(coords) → map center.
+    // Camera zoom only on user 1/2/3 tap (TMAP lock — no fitBounds).
+    const lat = stationsAnchor?.lat ?? coords?.lat ?? mapCenter.lat;
+    const lng = stationsAnchor?.lng ?? coords?.lng ?? mapCenter.lng;
     if (lat == null || lng == null) return;
 
     if (circleRef.current) {
@@ -126,6 +127,8 @@ export function RadiusControl() {
   }, [
     coords?.lat,
     coords?.lng,
+    stationsAnchor?.lat,
+    stationsAnchor?.lng,
     mapCenter.lat,
     mapCenter.lng,
     radiusKm,

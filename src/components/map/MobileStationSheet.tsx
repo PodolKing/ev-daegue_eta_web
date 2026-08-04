@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CarPanel } from "@/components/car/CarPanel";
+import { FavoritesPanel } from "@/components/favorites/FavoritesPanel";
 import type { NavId } from "@/components/layout/IconRail";
 import { StationList } from "@/components/map/StationList";
 import { UnimplementedHint } from "@/components/ui/Unimplemented";
@@ -238,9 +239,7 @@ export function MobileStationSheet({
         <div className="ev-scroll-panel min-h-0 flex-1 overflow-hidden">
           {activeNav === "map" && <StationList compactHeader />}
           {activeNav === "car" && <CarPanel />}
-          {activeNav === "favorites" && (
-            <UnimplementedHint>즐겨찾기</UnimplementedHint>
-          )}
+          {activeNav === "favorites" && <FavoritesPanel />}
           {activeNav === "points" && (
             <UnimplementedHint>포인트</UnimplementedHint>
           )}
