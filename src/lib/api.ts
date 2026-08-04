@@ -1,4 +1,5 @@
 import type { RadiusKm, StationListResponse } from "@/types/station";
+import type { RecommendRequest, RecommendResponse } from "@/types/recommend";
 
 /**
  * API base for browser calls.
@@ -56,4 +57,24 @@ export async function fetchHealth(): Promise<{ status: string }> {
   const res = await fetch(`${getApiBase()}/health`);
   if (!res.ok) throw new Error(`health ${res.status}`);
   return res.json();
+}
+/** AI 충전소 추천 — BE 프록시 → 외부 모델 */
+export async function fetchRecommendations(
+  body: RecommendRequest,
+): Promise<RecommendResponse> {
+  const res = await fetch(`${getApiBase()}/api/v1/recommendations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(
+      detail
+        ? `recommendations ${res.status}: ${detail}`
+        : `recommendations ${res.status}`,
+    );
+  }
+  return res.json() as Promise<RecommendResponse>;
 }

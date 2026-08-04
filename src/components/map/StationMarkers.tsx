@@ -10,6 +10,7 @@ import {
 } from "@/lib/chargerTypes";
 import { useLocationStore } from "@/stores/locationStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useRecommendStore } from "@/stores/recommendStore";
 import { useRouteStore } from "@/stores/routeStore";
 import { useCarStore, effectiveChargingPort } from "@/stores/carStore";
 import { ChargingPort } from "@/types/car";
@@ -202,18 +203,22 @@ export default function StationMarkers() {
   const includeSlow = useMapStore((s) => s.includeSlow);
   const map = useMapStore((s) => s.map);
   const selectedId = useMapStore((s) => s.selectedId);
+  const recommendActive = useRecommendStore((s) => s.active);
   const filterByCarPort = useCarStore((s) => s.filterByCarPort);
   const primaryCar = useCarStore((s) => s.primaryCar);
   const port = effectiveChargingPort(primaryCar);
 
+  // AI 추천 모드: 일반 반경 마커 숨김 → RecommendMarkers만
   const visible = useMemo(
     () =>
-      filterStationsByCarPort(
-        filterStationsBySlowInclude(stations, includeSlow),
-        port,
-        filterByCarPort,
-      ),
-    [stations, includeSlow, port, filterByCarPort],
+      recommendActive
+        ? []
+        : filterStationsByCarPort(
+            filterStationsBySlowInclude(stations, includeSlow),
+            port,
+            filterByCarPort,
+          ),
+    [stations, includeSlow, port, filterByCarPort, recommendActive],
   );
 
 

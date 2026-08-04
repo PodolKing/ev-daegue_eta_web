@@ -1910,3 +1910,72 @@ unSearch는 useMapStore.getState().center + useCallback([], [])로 center deps �
 ### 다음
 - 실기기: 검색→주변→목록/마커→상세·별 / 반경 2·3km 도착지 유지 / × 후 GPS 복귀 확인.
 - (선택) 길찾기 시작 시 검색어 clear — 웹 polish, 필수 아님.
+
+## 2026-08-04 — stations 목록에 chargers[] 중첩 (chgerId·status)
+
+### 한 일
+- BE StationItem.chargers: info⋈status 충전기 행을 JSON_ARRAYAGG로 중첩. 필드: chgerId, chgerType, output, chargerStatus, lastUpdated.
+- list_stations_near / list_stations_viewport 동일. 집계(availableCount 등) 규칙 유지.
+- FE 	ypes/station.ts에 Charger / chargers? 타입만 추가 (UI 미표시).
+- stations_api.md (api/web) 문서 반영.
+
+### 결정
+- 목록에 미리 실어 두고 가용대수→버튼 UI는 후속. 대구·limit 규모면 페이로드 OK. 커지면 상세 전용 API로 분리 검토.
+- 최상위 아이템은 계속 stat_id 집계.
+
+### 다음
+- 가용대수 버튼 → chargers[]로 개별 status 표시.
+- (선택) 클릭 시 실시간 status 재조회 vs 목록 스냅샷 사용 정책.
+
+## 2026-08-04 — chargers[]에 info 전 컬럼 확장
+
+### 한 일
+- ChargerItem: ev_charger_info 전 컬럼(+ infoUpdatedAt) + status(chargerStatus, lastUpdated).
+- JSON_ARRAYAGG JSON_OBJECT 확장. stat_id는 상위 stationId와 중복이라 중첩 생략.
+- FE Charger 타입·stations_api.md 동기화.
+
+### 결정
+- 패널용으로 쓸 수 있는 대별 필드는 목록에 미리 실어둠. UI는 후속.
+
+### 다음
+- 가용대수 버튼 → 충전기 패널 (FE).
+
+## 2026-08-04 — 추천 API env / Settings 연동
+
+### 한 일
+- pi/.env.example · .env: RECOMMEND_API_BASE_URL / TIMEOUT / KEY (키 실값 없음).
+- config.py Settings에 동일 필드 추가. README env 이름만 표기.
+
+### 결정
+- 추천은 외부 HTTP. 키는 담당자 배포·git 금지.
+
+### 다음
+- recommendations 라우터 프록시 + CamelModel 스키마 (가이드 §4).
+
+## 2026-08-04 — FE AI 추천 목록·마커 (길찾기 전)
+
+### 한 일
+- recommendStore + fetchRecommendations 연동.
+- PlaceSummaryBar「AI 추천」: 도착지 기준 점수 조회 (주변 stations 조회 없음).
+- RecommendStationPanel 점수순 목록 → 선택 후 길찾기.
+- RecommendMarkers: 추천 결과만 지도 마커. AI 모드 중 StationMarkers 숨김.
+
+### 결정
+- 빨간 도착 마커는 추천 중심. 길찾기 출발=현위치, 도착=고른 추천 충전소.
+
+### 다음
+- 실기기: 검색→AI 추천→목록/마커→길찾기 확인.
+
+## 2026-08-04 — AI 추천 연동 현황 정리 (aimodel.md)
+
+### 한 일
+- 워크스페이스 루트 imodel.md 작성 (git 추적 제외, .gitignore 등록).
+- BE 프록시 + FE AI 목록/마커/반경 숨김까지 현 상태·다음(stations statId 매칭) 문서화.
+- teamdeveloper에 본 블록 추가.
+
+### 결정
+- 모델 응답에 포트·가용대수 없음 → FE에서 도착지 stations 병렬 조회 후 statId 매칭 (BE 추가 불필요).
+- aimodel.md는 부모 워크스페이스 전용 — web/api 리포에 넣지 않음.
+
+### 다음
+- FE: AI 선택 시 포트·대수 보조 패널 (stations 매칭).
