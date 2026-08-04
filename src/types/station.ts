@@ -18,6 +18,15 @@ export type Station = {
   /** KECO chgerType codes at this station, e.g. ["02","04"] */
   chargerTypes?: string[];
   sourceMode?: string;
+  useTime?: string | null;
+  busiNm?: string | null;
+  busiCall?: string | null;
+  outputMin?: number | null;
+  outputMax?: number | null;
+  limitDetail?: string | null;
+  trafficYn?: string | null;
+  /** Y=무료주차, N=유료주차 */
+  parkingFree?: string | null;
 };
 
 export type StationListResponse = {

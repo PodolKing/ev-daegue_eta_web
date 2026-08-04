@@ -19,6 +19,23 @@ export const CHARGER_TYPE_LABELS = {
 
 export type ChargerTypeCode = keyof typeof CHARGER_TYPE_LABELS;
 
+/**
+ * 상세 카드 요약용 짧은 라벨 (한 줄 스크롤 칩 초안).
+ * StationDetailCard 주석 블록 + getChargerTypeShortLabel 과 함께 재활용.
+ */
+export const CHARGER_TYPE_SHORT_LABELS: Record<ChargerTypeCode, string> = {
+  "01": "차데모",
+  "02": "완속",
+  "03": "차데모·AC3",
+  "04": "콤보",
+  "05": "차데모·콤보",
+  "06": "복합",
+  "07": "AC3상",
+  "08": "콤보완속",
+  "09": "NACS",
+  "10": "콤보·NACS",
+};
+
 /** UI 필터 버킷 — 완속 vs 그외 */
 export type ChargerTypeBucket = "slow" | "other";
 
@@ -88,6 +105,18 @@ export function getChargerTypeLabel(
     return CHARGER_TYPE_LABELS[normalized as ChargerTypeCode];
   }
   return `기타(${normalized})`;
+}
+
+/** 카드 요약 칩용 짧은 라벨 (전체명은 getChargerTypeLabel) */
+export function getChargerTypeShortLabel(
+  code: string | null | undefined,
+): string {
+  const normalized = normalizeChargerTypeCode(code);
+  if (!normalized) return "알 수 없음";
+  if (normalized in CHARGER_TYPE_SHORT_LABELS) {
+    return CHARGER_TYPE_SHORT_LABELS[normalized as ChargerTypeCode];
+  }
+  return getChargerTypeLabel(normalized);
 }
 
 export function isSlowChargerType(code: string | null | undefined): boolean {
@@ -266,12 +295,12 @@ export function detailAvailabilityLines(station: {
       mixed: true,
       lines: [
         {
-          label: "급속충전 가능",
+          label: "급속 가능",
           value: formatBucketCount(station.availableCountOther),
           tone: toneFor(station.availableCountOther),
         },
         {
-          label: "완속충전 가능",
+          label: "완속 가능",
           value: formatBucketCount(station.availableCountSlow),
           tone: toneFor(station.availableCountSlow),
         },

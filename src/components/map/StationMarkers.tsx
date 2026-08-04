@@ -10,13 +10,24 @@ import {
 } from "@/lib/chargerTypes";
 import { useLocationStore } from "@/stores/locationStore";
 import { useMapStore } from "@/stores/mapStore";
-import { useCarStore,effectiveChargingPort } from "@/stores/carStore";
+import { useRouteStore } from "@/stores/routeStore";
+import { useCarStore, effectiveChargingPort } from "@/stores/carStore";
 import { ChargingPort } from "@/types/car";
+import {
+  nearestStation,
+  stationHitMaxMForMap,
+} from "@/lib/map/stationHit";
 
 const MAP_ELEMENT_ID = "ev-tmap-map";
-/** Tap must land within this many meters of a station (mobile hit slop). */
-const HIT_MAX_M = 80;
-const TAP_MAX_MOVE_PX = 14;
+/** 폴드·터치 미세 흔들림 허용 (기존 14는 취소가 잦음) */
+const TAP_MAX_MOVE_PX = 28;
+
+/** 자유주행 + 길찾기(loading/ready)일 때만 충전소 탭 차단. 탐색은 허용. */
+function blockStationPick(): boolean {
+  if (!useLocationStore.getState().testMode) return false;
+  const status = useRouteStore.getState().status;
+  return status === "loading" || status === "ready";
+}
 
 
 
@@ -186,40 +197,6 @@ function clientToLatLng(
   return null;
 }
 
-function haversineMeters(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
-  const R = 6371000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
-
-function nearestStation(
-  stations: Station[],
-  lat: number,
-  lng: number,
-  maxM: number,
-): Station | null {
-  let best: Station | null = null;
-  let bestD = maxM;
-  for (const s of stations) {
-    const d = haversineMeters({ lat, lng }, s);
-    if (d < bestD) {
-      bestD = d;
-      best = s;
-    }
-  }
-  return best;
-}
-
 export default function StationMarkers() {
   const stations = useMapStore((s) => s.stations);
   const includeSlow = useMapStore((s) => s.includeSlow);
@@ -278,7 +255,7 @@ export default function StationMarkers() {
         });
 
         const onPick = () => {
-          if (useLocationStore.getState().testMode) return;
+          if (blockStationPick()) return;
           useMapStore.getState().selectStation(station.stationId);
         };
 
@@ -334,7 +311,8 @@ export default function StationMarkers() {
 
   /**
    * Mobile: radius Circle often swallows Marker taps (same issue as 시험주행).
-   * Short tap on map DOM → nearest station within HIT_MAX_M.
+   * Short tap on map DOM → nearest station (줌 연동 hit m).
+   * 자유주행+길찾기 중만 스킵 — 탐색 탭은 허용.
    */
   useEffect(() => {
     if (!map) return;
@@ -345,10 +323,16 @@ export default function StationMarkers() {
     let activePointers = 0;
 
     const trySelectAt = (clientX: number, clientY: number) => {
-      if (useLocationStore.getState().testMode) return;
+      if (blockStationPick()) return;
       const ll = clientToLatLng(map, el, clientX, clientY);
       if (!ll) return;
-      const hit = nearestStation(stationsRef.current, ll.lat, ll.lng, HIT_MAX_M);
+      const maxM = stationHitMaxMForMap(map, ll.lat);
+      const hit = nearestStation(
+        stationsRef.current,
+        ll.lat,
+        ll.lng,
+        maxM,
+      );
       if (hit) {
         useMapStore.getState().selectStation(hit.stationId);
       }

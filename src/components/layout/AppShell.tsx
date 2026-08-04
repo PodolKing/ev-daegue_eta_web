@@ -8,6 +8,7 @@ import { MapView } from "@/components/map/MapView";
 import { StationList } from "@/components/map/StationList";
 import { MobileStationSheet } from "@/components/map/MobileStationSheet";
 import { CarPanel } from "@/components/car/CarPanel";
+import { FavoritesPanel } from "@/components/favorites/FavoritesPanel";
 import { UnimplementedHint } from "@/components/ui/Unimplemented";
 import { fetchHealth, fetchStations } from "@/lib/api";
 import { useCompactLayout } from "@/lib/device/useCompactLayout";
@@ -45,6 +46,7 @@ export function AppShell() {
   const didBootstrapCenter = useRef(false);
 
   const radiusKm = useMapStore((s) => s.radiusKm);
+  const stationsAnchor = useMapStore((s) => s.stationsAnchor);
   const setCenter = useMapStore((s) => s.setCenter);
   const setStations = useMapStore((s) => s.setStations);
   const setLoading = useMapStore((s) => s.setLoading);
@@ -105,9 +107,9 @@ export function AppShell() {
     setCenter({ lat: coords.lat, lng: coords.lng });
   }, [coords, setCenter]);
 
-  // radius: always refetch. coords: distance / time throttle (watch-friendly).
+  // radius: always refetch. origin: stationsAnchor (도착지) or GPS; throttle on move.
   useEffect(() => {
-    const origin = coords ?? DAEGU_CENTER;
+    const origin = stationsAnchor ?? coords ?? DAEGU_CENTER;
 
     const runFetch = () => {
       const reqId = ++stationsReqId.current;
@@ -142,8 +144,10 @@ export function AppShell() {
 
     const prev = lastStationsFetchRef.current;
     const radiusChanged = !prev || prev.radiusKm !== radiusKm;
+    const originMoved =
+      !prev || haversineMeters(prev, origin) >= (stationsAnchor ? 1 : STATIONS_REFETCH_MIN_M);
 
-    if (radiusChanged) {
+    if (radiusChanged || (stationsAnchor && originMoved)) {
       if (stationsDebounceRef.current) {
         clearTimeout(stationsDebounceRef.current);
         stationsDebounceRef.current = null;
@@ -152,10 +156,14 @@ export function AppShell() {
       return;
     }
 
-    const movedM = haversineMeters(prev, origin);
-    const elapsed = Date.now() - prev.at;
+    if (stationsAnchor) {
+      // Pinned to destination — ignore GPS jitter until anchor cleared / radius change.
+      return;
+    }
 
-    if (movedM >= STATIONS_REFETCH_MIN_M || elapsed >= STATIONS_REFETCH_MIN_MS) {
+    const elapsed = Date.now() - (prev?.at ?? 0);
+
+    if (originMoved || elapsed >= STATIONS_REFETCH_MIN_MS) {
       if (stationsDebounceRef.current) {
         clearTimeout(stationsDebounceRef.current);
         stationsDebounceRef.current = null;
@@ -182,6 +190,8 @@ export function AppShell() {
     };
   }, [
     radiusKm,
+    stationsAnchor?.lat,
+    stationsAnchor?.lng,
     coords?.lat,
     coords?.lng,
     setStations,
@@ -214,9 +224,7 @@ export function AppShell() {
         ].join(" ")}
       >
         {activeNav === "map" && <StationList />}
-        {activeNav === "favorites" && (
-          <UnimplementedHint>즐겨찾기</UnimplementedHint>
-        )}
+        {activeNav === "favorites" && <FavoritesPanel />}
         {activeNav === "points" && (
           <UnimplementedHint>포인트</UnimplementedHint>
         )}

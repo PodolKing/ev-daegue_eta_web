@@ -7,6 +7,7 @@ const LAN_172_30_1 = Array.from(
 );
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   allowedDevOrigins: [...LAN_172_30_1, "172.28.16.1"],
 };
 

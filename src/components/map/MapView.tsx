@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
+import { useRouteStore } from "@/stores/routeStore";
 import { RadiusControl } from "@/components/map/RadiusControl";
 import { StationDetailCard } from "@/components/map/StationDetailCard";
 import { PlaceSummaryBar } from "@/components/map/PlaceSummaryBar";
@@ -17,6 +18,10 @@ import {
   endMapGesture,
   isMapGestureActive,
 } from "@/lib/map/mapGesture";
+import {
+  nearestStation,
+  stationHitMaxMForMap,
+} from "@/lib/map/stationHit";
 import { ensureTmapSdk, isTmapSdkReady } from "@/lib/tmap/loadSdk";
 import StationMarkers from "@/components/map/StationMarkers";
 import { CarPortFilterFab } from "@/components/map/CarPortFilterFab";
@@ -168,10 +173,27 @@ export function MapView() {
     const x = clientX - rect.left;
     const y = clientY - rect.top;
 
+    /** 길찾기 중이 아닐 때 충전소 탭 → 위치 이동 대신 StationMarkers 선택에 맡김. */
+    const applyOrDeferToStation = (parsed: { lat: number; lng: number }) => {
+      const status = useRouteStore.getState().status;
+      const guiding = status === "loading" || status === "ready";
+      if (!guiding) {
+        const maxM = stationHitMaxMForMap(map, parsed.lat);
+        const hit = nearestStation(
+          useMapStore.getState().stations,
+          parsed.lat,
+          parsed.lng,
+          maxM,
+        );
+        if (hit) return;
+      }
+      setTestCoords(parsed);
+    };
+
     const tryApply = (ll: unknown) => {
       const parsed = readTmapLatLng(ll);
       if (parsed) {
-        setTestCoords(parsed);
+        applyOrDeferToStation(parsed);
         return true;
       }
       return false;
@@ -207,7 +229,7 @@ export function MapView() {
         const lng = swLL.lng + (neLL.lng - swLL.lng) * (x / rect.width);
         const lat = neLL.lat - (neLL.lat - swLL.lat) * (y / rect.height);
         if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          setTestCoords({ lat, lng });
+          applyOrDeferToStation({ lat, lng });
         }
       }
     } catch {
@@ -474,7 +496,20 @@ export function MapView() {
 
     const onMapSdkClick = (evt: { latLng?: unknown }) => {
       const parsed = readTmapLatLng(evt?.latLng);
-      if (parsed) setTestCoords(parsed);
+      if (!parsed) return;
+      const status = useRouteStore.getState().status;
+      const guiding = status === "loading" || status === "ready";
+      if (!guiding) {
+        const maxM = stationHitMaxMForMap(map, parsed.lat);
+        const hit = nearestStation(
+          useMapStore.getState().stations,
+          parsed.lat,
+          parsed.lng,
+          maxM,
+        );
+        if (hit) return;
+      }
+      setTestCoords(parsed);
     };
 
     let attached: "map" | "event" | null = null;
@@ -486,7 +521,7 @@ export function MapView() {
       attached = "event";
     }
 
-    const TAP_MAX_MOVE_PX = 14;
+    const TAP_MAX_MOVE_PX = 28;
     const TAP_MAX_MS = 500;
     let start: { x: number; y: number; t: number } | null = null;
     let moved = false;

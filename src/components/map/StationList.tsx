@@ -3,10 +3,16 @@
 import { useMemo } from "react";
 import {
   availableCountForSlowFilter,
+  filterStationsByCarPort,
   filterStationsBySlowInclude,
 } from "@/lib/chargerTypes";
+import {
+  parkingFreeShort,
+  parkingKind,
+  parkingListTextClass,
+} from "@/lib/parking";
+import { FavoriteStarButton } from "@/components/map/FavoriteStarButton";
 import { useMapStore } from "@/stores/mapStore";
-import { filterStationsByCarPort } from "@/lib/chargerTypes";
 import { useCarStore, effectiveChargingPort } from "@/stores/carStore";
 
 function formatAvailable(count: number | null): { label: string; tone: string } {
@@ -139,45 +145,66 @@ export function StationList({ compactHeader = false }: StationListProps) {
           {visible.map((s) => {
             const count = availableCountForSlowFilter(s, includeSlow);
             const avail = formatAvailable(count);
+            const parkingLabel = parkingFreeShort(s.parkingFree);
+            const parkingTone = parkingKind(s.parkingFree);
             const active = s.stationId === selectedId;
             return (
               <li key={s.stationId}>
-                <button
-                  type="button"
-                  onClick={() => selectStation(s.stationId)}
+                <div
                   className={[
-                    "flex w-full items-start gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-left transition-colors",
+                    "flex w-full items-start gap-1 rounded-[var(--radius-md)] transition-colors",
                     active
                       ? "bg-[var(--accent-soft)]"
                       : "hover:bg-[var(--surface-muted)]",
                   ].join(" ")}
                 >
-                  <span
-                    className={[
-                      "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-bold",
-                      avail.tone,
-                    ].join(" ")}
+                  <button
+                    type="button"
+                    onClick={() => selectStation(s.stationId)}
+                    className="flex min-w-0 flex-1 items-start gap-3 px-3 py-2.5 text-left touch-manipulation"
                   >
-                    {count === null ? "—" : count}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-semibold text-[var(--text)]">
-                      {s.name ?? s.stationId}
+                    <span
+                      className={[
+                        "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-bold",
+                        avail.tone,
+                      ].join(" ")}
+                    >
+                      {count === null ? "—" : count}
                     </span>
-                    <span className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
-                      {s.address ?? "주소 없음"}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-semibold text-[var(--text)]">
+                        {s.name ?? s.stationId}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
+                        {s.address ?? "주소 없음"}
+                      </span>
+                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--text-secondary)]">
+                        <span className={avail.tone.split(" ")[0]}>{avail.label}</span>
+                        {s.distanceKm != null && (
+                          <>
+                            <span className="text-[var(--border-strong)]">·</span>
+                            <span>{s.distanceKm.toFixed(1)} km</span>
+                          </>
+                        )}
+                        {parkingLabel && parkingTone ? (
+                          <>
+                            <span className="text-[var(--border-strong)]">·</span>
+                            <span
+                              className={`font-medium ${parkingListTextClass(parkingTone)}`}
+                            >
+                              {parkingLabel}
+                            </span>
+                          </>
+                        ) : null}
+                      </span>
                     </span>
-                    <span className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
-                      <span className={avail.tone.split(" ")[0]}>{avail.label}</span>
-                      {s.distanceKm != null && (
-                        <>
-                          <span className="text-[var(--border-strong)]">·</span>
-                          <span>{s.distanceKm.toFixed(1)} km</span>
-                        </>
-                      )}
-                    </span>
-                  </span>
-                </button>
+                  </button>
+                  <FavoriteStarButton
+                    stationId={s.stationId}
+                    variant="list"
+                    className="mr-1.5"
+                  />
+                </div>
               </li>
             );
           })}

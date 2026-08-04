@@ -78,6 +78,11 @@ type MapState = {
    * 완속(02/08) 포함 여부. false(기본) = 그외 타입만 목록/마커에 표시.
    */
   includeSlow: boolean;
+  /**
+   * When set, station list/markers fetch around this point (도착지 주변 조회).
+   * null = use 현위치 (GPS / test coords).
+   */
+  stationsAnchor: { lat: number; lng: number } | null;
   loading: boolean;
   error: string | null;
   map: any | null;
@@ -91,6 +96,7 @@ type MapState = {
   setSearchUiOpen: (open: boolean) => void;
   /** Convenience: true → half, false → peek (detail card 등). */
   setMobileListOpen: (open: boolean) => void;
+  setStationsAnchor: (a: { lat: number; lng: number } | null) => void;
   setIncludeSlow: (v: boolean) => void;
   /**
    * Select station: highlight, collapse sheet to peek, pan camera (zoom unchanged).
@@ -117,6 +123,7 @@ export const useMapStore = create<MapState>((set, get) => ({
   mobileSheetSnap: "half",
   searchUiOpen: false,
   includeSlow: false,
+  stationsAnchor: null,
   loading: false,
   error: null,
   map: null,
@@ -130,6 +137,7 @@ export const useMapStore = create<MapState>((set, get) => ({
   setSearchUiOpen: (searchUiOpen) => set({ searchUiOpen }),
   setMobileListOpen: (open) =>
     set({ mobileSheetSnap: open ? "half" : "peek" }),
+  setStationsAnchor: (stationsAnchor) => set({ stationsAnchor }),
   setIncludeSlow: (includeSlow) => {
     const { stations, selectedId } = get();
     let nextSelected = selectedId;
@@ -155,7 +163,7 @@ export const useMapStore = create<MapState>((set, get) => ({
     // Place-search preview만 닫기. 길찾기 중(loading/ready)에는 경로·ETA·선 유지.
     const route = useRouteStore.getState();
     if (route.status !== "loading" && route.status !== "ready") {
-      route.clearDestination();
+      route.clearDestination({ keepStationsAnchor: true });
     }
 
     set({

@@ -26,7 +26,7 @@ type RouteState = {
   durationSec: number | null;
 
   setDestination: (d: RouteDestination) => void;
-  clearDestination: () => void;
+  clearDestination: (opts?: { keepStationsAnchor?: boolean }) => void;
   /** Start directions: origin = 현위치, dest = destination. */
   startDirections: (dest?: RouteDestination) => void;
   /**
@@ -85,10 +85,11 @@ function runCarRouteFetch(opts: {
 
   if (mode === "start") {
     useLocationStore.getState().setFollow(false);
-  
+
     const ROUTE_FOCUS_ZOOM = 17; // 현위치와 동일 (검색 18 아님)
     useLocationStore.getState().setFollow(true); // 현위치 탭과 동일하면 추천
-    const { map, setCenter, setZoom } = useMapStore.getState();
+    const { map, setCenter, setZoom, setMobileSheetSnap, setSelectedId } =
+      useMapStore.getState();
     setCenter({ lat: origin.lat, lng: origin.lng });
     setZoom(ROUTE_FOCUS_ZOOM);
     if (map && window.Tmapv2?.LatLng) {
@@ -99,7 +100,15 @@ function runCarRouteFetch(opts: {
         map.setZoom(ROUTE_FOCUS_ZOOM);
       }
     }
-  
+
+    // Directions 카드가 시트에 가리지 않게 peek + 목적지 카드/요약바 노출
+    setMobileSheetSnap("peek");
+    if (destination.stationId) {
+      setSelectedId(destination.stationId);
+    } else {
+      setSelectedId(null);
+    }
+
     clearRefreshTimer();
     set({
       status: "loading",
@@ -159,6 +168,7 @@ export const useRouteStore = create<RouteState>((set, get) => ({
   setDestination: (destination) => {
     clearRefreshTimer();
     lastRouteFetch = null;
+    useMapStore.getState().setStationsAnchor(null);
     set({
       destination,
       status: "preview",
@@ -169,10 +179,13 @@ export const useRouteStore = create<RouteState>((set, get) => ({
     });
   },
 
-  clearDestination: () => {
+  clearDestination: (opts) => {
     clearRefreshTimer();
     lastRouteFetch = null;
     routeReqId += 1;
+    if (!opts?.keepStationsAnchor) {
+      useMapStore.getState().setStationsAnchor(null);
+    }
     set({
       destination: null,
       status: "idle",
@@ -186,6 +199,9 @@ export const useRouteStore = create<RouteState>((set, get) => ({
   startDirections: (dest) => {
     const destination = dest ?? get().destination;
     if (!destination) return;
+
+    // 길찾기 시작 후엔 도착지 주변 조회 앵커·버튼 해제 → 현위치 기준으로 복귀.
+    useMapStore.getState().setStationsAnchor(null);
 
     if (dest) {
       set({

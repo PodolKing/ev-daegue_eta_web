@@ -7,6 +7,7 @@ import {
   UnimplementedBadge,
   UnimplementedHint,
 } from "@/components/ui/Unimplemented";
+import { useLocationStore } from "@/stores/locationStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useRouteStore } from "@/stores/routeStore";
 
@@ -28,6 +29,9 @@ export function PlaceSummaryBar() {
   const startDirections = useRouteStore((s) => s.startDirections);
   const selectedId = useMapStore((s) => s.selectedId);
   const setSelectedId = useMapStore((s) => s.setSelectedId);
+  const setCenter = useMapStore((s) => s.setCenter);
+  const setStationsAnchor = useMapStore((s) => s.setStationsAnchor);
+  const setMobileSheetSnap = useMapStore((s) => s.setMobileSheetSnap);
   const map = useMapStore((s) => s.map);
   const markerRef = useRef<any>(null);
   const distanceM = useRouteStore((s) => s.distanceM);
@@ -82,43 +86,73 @@ export function PlaceSummaryBar() {
   const showUnimplemented = error === "__UNIMPLEMENTED__";
   const routeActive = status === "loading" || status === "ready";
   const routeExpanded = status === "loading" || status === "ready";
+  /** 검색 직후 preview만 — 길찾기 시작 후에는 숨김. */
+  const showNearbyStations = status === "preview";
+
+  const queryNearbyStations = () => {
+    useLocationStore.getState().setFollow(false);
+    setStationsAnchor({ lat: destination.lat, lng: destination.lng });
+    setCenter({ lat: destination.lat, lng: destination.lng });
+    setMobileSheetSnap("half");
+    if (map && window.Tmapv2?.LatLng && typeof map.setCenter === "function") {
+      map.setCenter(new window.Tmapv2.LatLng(destination.lat, destination.lng));
+    }
+  };
 
   return (
-    <div className="pointer-events-auto w-full max-w-[min(100%,380px)] animate-fade-up">
+    <div className="pointer-events-auto w-full max-w-[min(100%,280px)] animate-fade-up">
       <div
         className={[
           "rounded-[var(--radius-lg)] border border-[var(--border)] bg-white/95 shadow-[var(--shadow-md)] backdrop-blur-md",
-          routeExpanded ? "p-4" : "px-3 py-2.5",
+          routeExpanded ? "p-3.5" : "px-3 py-2.5",
         ].join(" ")}
       >
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            {routeExpanded ? (
-              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-muted)]">
-                Directions
-              </p>
-            ) : null}
+        <div>
+          {routeExpanded ? (
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-muted)]">
+              Directions
+            </p>
+          ) : null}
+      
+          <div
+            className={[
+              "flex min-w-0 items-center gap-2",
+              routeExpanded ? "mt-1" : "",
+            ].join(" ")}
+          >
             <p
               className={[
-                "truncate font-semibold text-[var(--text)]",
-                routeExpanded ? "mt-1 text-[17px] font-bold tracking-tight" : "text-[14px]",
+                "min-w-0 flex-1 truncate font-semibold text-[var(--text)]",
+                routeExpanded
+                  ? "text-[16px] font-bold tracking-tight"
+                  : "text-[14px]",
               ].join(" ")}
               style={{ fontFamily: "var(--font-display), sans-serif" }}
             >
               {destination.name}
             </p>
-            <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
-              {destination.address || "주소 정보 없음"}
-            </p>
+            {showNearbyStations ? (
+              <button
+                type="button"
+                onClick={queryNearbyStations}
+                className="inline-flex h-7 shrink-0 items-center rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2 text-[11px] font-semibold text-[var(--text-secondary)] touch-manipulation hover:bg-[var(--surface-muted)]"
+                aria-label="도착지 주변 충전소 조회"
+              >
+                주변 충전소 조회
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => clearDestination()}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[15px] leading-none text-[var(--text-muted)] touch-manipulation hover:text-[var(--text)]"
+              aria-label={routeActive ? "안내종료" : "장소 요약 닫기"}
+            >
+              ×
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => clearDestination()}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] touch-manipulation hover:text-[var(--text)]"
-            aria-label={routeActive ? "안내종료" : "장소 요약 닫기"}
-          >
-            ×
-          </button>
+          <p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
+            {destination.address || "주소 정보 없음"}
+          </p>
         </div>
 
         {routeExpanded ? (
@@ -168,12 +202,18 @@ export function PlaceSummaryBar() {
           </p>
         ) : null}
 
-        <div className={routeExpanded ? "mt-3 flex gap-2" : "mt-0 flex items-center gap-2"}>
+        {/* 메인 CTA 행 — preview는 길찾기만(내용 폭). 이후 충전확률을 옆에 shrink-0로 추가하면 됨. */}
+        <div
+          className={[
+            "flex items-center gap-2",
+            routeExpanded ? "mt-3" : "mt-2 justify-end",
+          ].join(" ")}
+        >
           {destination.stationId && !routeExpanded ? (
             <button
               type="button"
               onClick={() => setSelectedId(destination.stationId!)}
-              className="shrink-0 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-2 text-[12px] font-semibold text-[var(--text-secondary)] touch-manipulation hover:bg-[var(--surface-muted)]"
+              className="mr-auto shrink-0 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[var(--text-secondary)] touch-manipulation hover:bg-[var(--surface-muted)]"
             >
               펼치기
             </button>
@@ -186,7 +226,7 @@ export function PlaceSummaryBar() {
                 "rounded-[var(--radius-pill)] border border-[var(--border)] bg-white text-[12px] font-semibold text-[var(--text-secondary)] touch-manipulation hover:bg-[var(--surface-muted)]",
                 routeExpanded
                   ? "flex-1 px-3 py-2.5 text-[13px]"
-                  : "shrink-0 px-3 py-2",
+                  : "shrink-0 px-3 py-1.5",
               ].join(" ")}
             >
               안내종료
@@ -196,10 +236,10 @@ export function PlaceSummaryBar() {
             type="button"
             onClick={() => startDirections()}
             className={[
-              "relative rounded-[var(--radius-pill)] bg-[var(--accent)] font-semibold text-white touch-manipulation hover:opacity-90",
+              "relative shrink-0 rounded-[var(--radius-pill)] bg-[var(--accent)] font-semibold text-white touch-manipulation hover:opacity-90",
               routeExpanded
-                ? "flex-[1.4] px-4 py-2.5 text-[13px]"
-                : "shrink-0 px-3.5 py-2 text-[12px]",
+                ? "flex-1 px-4 py-2.5 text-[13px]"
+                : "px-3.5 py-2 text-[12px]",
             ].join(" ")}
           >
             {status === "ready" ? (routeExpanded ? "다시 길찾기" : "다시") : "길찾기"}
