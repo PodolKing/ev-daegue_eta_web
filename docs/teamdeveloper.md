@@ -1979,3 +1979,34 @@ unSearch는 useMapStore.getState().center + useCallback([], [])로 center deps �
 
 ### 다음
 - FE: AI 선택 시 포트·대수 보조 패널 (stations 매칭).
+
+## 2026-08-05 — getApiBase Vercel+LAN · 소셜 자사 JWT
+
+### 한 일
+- FE `getApiBase`: 사설 IPv4(LAN)일 때만 `http://{host}:8000`. Vercel/커스텀 도메인은 `NEXT_PUBLIC_API_BASE_URL`(Render 등).
+- `npm run dev:lan` 스크립트 복구.
+- 소셜: `startOAuthRedirect` 실제 이동. BE 콜백이 `#accessToken=` fragment로 FE에 전달 → `consumeOAuthAccessTokenFromUrl` → localStorage Bearer → `/me`.
+- 문서: `06_auth_me`, `auth_api`, `.env.example` (Vercel/FRONTEND_ORIGIN 주석).
+
+### 결정
+- 소셜/세션은 **우리 FastAPI(Authlib)+JWT+Bearer**. Supabase Auth 미사용 — DB만 Supabase(편의), 이후 AWS 등 교체 가능.
+- 쿠키는 보조; 크로스 오리진(Vercel↔Render)은 fragment 토큰이 본체.
+
+### 다음
+- Vercel: `NEXT_PUBLIC_API_BASE_URL`=Render URL, TMAP 도메인. Render: `CORS_ORIGINS`/`FRONTEND_ORIGIN`=Vercel, OAuth redirect URI·시크릿.
+- 소셜 콘솔 redirect를 Render HTTPS로 등록 후 스모크.
+
+## 2026-08-05 — 주변 탐색(map) 모드: 칩 진입 + pan 연속 조회
+
+### 한 일
+- 「주변 탐색하기」희미한 칩: 조회 원점에서 ~500m 이상일 때 표시. 탭 시 stationsAnchor source=map (반경 원 없음).
+- map 모드 중: pan idle 450ms + 250m 이상 이동 시 카메라 중심으로 재조회. 상태 칩「화면 따라 검색 중」.
+- OFF: ◎ 현위치 탭 시 map anchor 해제 / 카메라가 GPS 300m 이내면 자동 해제.
+- 카메라 sync: MapView 잠금 유지, getCenter를 pointerup·dragend로 store 반영 (useSyncMapCenterFromCamera).
+
+### 결정
+- 기본 강점(현위치·도착지) 유지. 카메라 추종 조회는 명시 진입 후에만.
+- 매 프레임 조회 금지 — idle debounce + 거리 throttle.
+
+### 다음
+- 체감 민감도(500/300/250/450ms) 조정. AI 중 진입은 policy false 유지.

@@ -7,6 +7,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { MapView } from "@/components/map/MapView";
 import { StationList } from "@/components/map/StationList";
 import { MobileStationSheet } from "@/components/map/MobileStationSheet";
+import { SearchThisAreaButton } from "@/components/map/SearchThisAreaButton";
 import { CarPanel } from "@/components/car/CarPanel";
 import { FavoritesPanel } from "@/components/favorites/FavoritesPanel";
 import { UnimplementedHint } from "@/components/ui/Unimplemented";
@@ -246,6 +247,11 @@ export function AppShell() {
         >
           <TopBar apiOnline={apiOnline} />
           <MapView />
+
+          {/* 이 지역 검색 칩 — 시트(z-30)보다 위 */}
+          <div className="pointer-events-none absolute inset-x-0 top-[6.5rem] z-[40] flex justify-center px-3">
+            <SearchThisAreaButton />
+          </div>
 
           {/* md+: toggle station list side panel */}
           <button

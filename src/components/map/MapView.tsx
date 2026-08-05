@@ -683,6 +683,12 @@ export function MapView() {
   const handleMoveToMyLocation = () => {
     if (!FEATURES.moveToMyLocation) return;
 
+    // 주변 탐색(map) 모드 OFF → 현위치 조회 복귀
+    const anchor = useMapStore.getState().stationsAnchor;
+    if (anchor?.source === "map") {
+      useMapStore.getState().setStationsAnchor(null);
+    }
+
     setFollow(true);
 
     const cached = useLocationStore.getState().coords;

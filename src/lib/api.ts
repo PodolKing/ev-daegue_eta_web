@@ -2,16 +2,32 @@ import type { RadiusKm, StationListResponse } from "@/types/station";
 import type { RecommendRequest, RecommendResponse } from "@/types/recommend";
 
 /**
+ * True for typical phone→PC LAN hosts (private IPv4).
+ * Not true for Vercel / custom domains — those must use NEXT_PUBLIC_API_BASE_URL.
+ */
+export function isPrivateLanHostname(host: string): boolean {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host.trim());
+  if (!m) return false;
+  const octets = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
+  if (octets.some((n) => !Number.isInteger(n) || n > 255)) return false;
+  const [a, b] = octets;
+  if (a === 10) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  return false;
+}
+
+/**
  * API base for browser calls.
- * On LAN (phone → PC IP): use the same hostname as the page, port 8000 —
- * so DHCP IP changes do not require editing NEXT_PUBLIC_API_BASE_URL.
- * On localhost: prefer env, else http://localhost:8000.
+ * - localhost / 127.0.0.1 → NEXT_PUBLIC_API_BASE_URL (default http://localhost:8000)
+ * - private LAN IP (phone Wi‑Fi) → http://{page-host}:8000 (DHCP-friendly)
+ * - otherwise (Vercel, custom domain) → NEXT_PUBLIC_API_BASE_URL (Render HTTPS)
  */
 export function getApiBase(): string {
   const fromEnv = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    if (host !== "localhost" && host !== "127.0.0.1") {
+    if (isPrivateLanHostname(host)) {
       return `http://${host}:8000`;
     }
   }
