@@ -79,10 +79,15 @@ type MapState = {
    */
   includeSlow: boolean;
   /**
-   * When set, station list/markers fetch around this point (도착지 주변 조회).
+   * When set, station list/markers fetch around this point.
+   * source: destination = 도착지 주변(원 표시) / map = 이 지역 검색(원 없음).
    * null = use 현위치 (GPS / test coords).
    */
-  stationsAnchor: { lat: number; lng: number } | null;
+  stationsAnchor: {
+    lat: number;
+    lng: number;
+    source?: "destination" | "map";
+  } | null;
   loading: boolean;
   error: string | null;
   map: any | null;
@@ -96,7 +101,9 @@ type MapState = {
   setSearchUiOpen: (open: boolean) => void;
   /** Convenience: true → half, false → peek (detail card 등). */
   setMobileListOpen: (open: boolean) => void;
-  setStationsAnchor: (a: { lat: number; lng: number } | null) => void;
+  setStationsAnchor: (
+    a: { lat: number; lng: number; source?: "destination" | "map" } | null,
+  ) => void;
   setIncludeSlow: (v: boolean) => void;
   /**
    * Select station: highlight, collapse sheet to peek, pan camera (zoom unchanged).

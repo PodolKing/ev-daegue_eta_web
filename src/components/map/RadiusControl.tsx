@@ -53,11 +53,11 @@ export function RadiusControl() {
       circleRef.current = null;
     }
 
-    // 시험주행 or 모바일: 원이 탭/클릭을 가로채는 TMAP 이슈 → 원 숨김 (반경 API는 그대로)
+    // 시험주행·모바일·이 지역(map) 검색: 원 없음 (반경 API·1/2/3은 유지)
     const isMobile =
       typeof window !== "undefined" &&
       !window.matchMedia("(min-width: 768px)").matches;
-    if (testMode || isMobile) {
+    if (testMode || isMobile || stationsAnchor?.source === "map") {
       return;
     }
 
@@ -129,6 +129,7 @@ export function RadiusControl() {
     coords?.lng,
     stationsAnchor?.lat,
     stationsAnchor?.lng,
+    stationsAnchor?.source,
     mapCenter.lat,
     mapCenter.lng,
     radiusKm,

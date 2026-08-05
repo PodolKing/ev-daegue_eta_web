@@ -102,7 +102,11 @@ export function PlaceSummaryBar() {
 
   const queryNearbyStations = () => {
     useLocationStore.getState().setFollow(false);
-    setStationsAnchor({ lat: destination.lat, lng: destination.lng });
+    setStationsAnchor({
+      lat: destination.lat,
+      lng: destination.lng,
+      source: "destination",
+    });
     setCenter({ lat: destination.lat, lng: destination.lng });
     setMobileSheetSnap("half");
     if (map && window.Tmapv2?.LatLng && typeof map.setCenter === "function") {
