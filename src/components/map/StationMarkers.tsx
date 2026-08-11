@@ -15,9 +15,10 @@ import { useRouteStore } from "@/stores/routeStore";
 import { useCarStore, effectiveChargingPort } from "@/stores/carStore";
 import { ChargingPort } from "@/types/car";
 import {
-  nearestStation,
+  nearestLatLngItem,
   stationHitMaxMForMap,
 } from "@/lib/map/stationHit";
+import { usePlaceCategoryStore } from "@/stores/placeCategoryStore";
 
 const MAP_ELEMENT_ID = "ev-tmap-map";
 /** 폴드·터치 미세 흔들림 허용 (기존 14는 취소가 잦음) */
@@ -332,15 +333,29 @@ export default function StationMarkers() {
       const ll = clientToLatLng(map, el, clientX, clientY);
       if (!ll) return;
       const maxM = stationHitMaxMForMap(map, ll.lat);
-      const hit = nearestStation(
+      const hit = nearestLatLngItem(
         stationsRef.current,
         ll.lat,
         ll.lng,
         maxM,
       );
-      if (hit) {
-        useMapStore.getState().selectStation(hit.stationId);
+      if (!hit) return;
+
+      // 카테고리 POI가 더 가깝거나 동거리면 PlaceCategoryMarkers에 맡김
+      const placeState = usePlaceCategoryStore.getState();
+      if (placeState.active && placeState.items.length > 0) {
+        const placeHit = nearestLatLngItem(
+          placeState.items,
+          ll.lat,
+          ll.lng,
+          maxM,
+        );
+        if (placeHit && placeHit.distanceM <= hit.distanceM) {
+          return;
+        }
       }
+
+      useMapStore.getState().selectStation(hit.item.stationId);
     };
 
     const onPointerDown = (e: PointerEvent) => {

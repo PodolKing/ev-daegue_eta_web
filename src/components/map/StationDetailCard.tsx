@@ -11,6 +11,7 @@ import { FavoriteStarButton } from "@/components/map/FavoriteStarButton";
 import { UnimplementedBadge } from "@/components/ui/Unimplemented";
 import { parkingBarClass, parkingKind } from "@/lib/parking";
 import { useMapStore } from "@/stores/mapStore";
+import { useRecommendStore } from "@/stores/recommendStore";
 import { useRouteStore } from "@/stores/routeStore";
 
 /** 세부 패널 표시용 — 타입/API 연결 시 여기만 교체하면 됨. */
@@ -77,6 +78,7 @@ export function StationDetailCard() {
   const routeDest = useRouteStore((s) => s.destination);
   const distanceM = useRouteStore((s) => s.distanceM);
   const durationSec = useRouteStore((s) => s.durationSec);
+  const recommendActive = useRecommendStore((s) => s.active);
 
   const [showMeta, setShowMeta] = useState(false);
   // const [typeTipCode, setTypeTipCode] = useState<string | null>(null); // 짧은칩+탭 전체명 초안
@@ -539,18 +541,29 @@ export function StationDetailCard() {
         ) : null}
         <button
           type="button"
-          onClick={() =>
+          disabled={recommendActive}
+          aria-disabled={recommendActive}
+          title={
+            recommendActive
+              ? "아래 AI 목록에서 「이 충전소로 길찾기」를 사용하세요"
+              : undefined
+          }
+          onClick={() => {
+            if (recommendActive) return;
             startDirections({
               name: station.name ?? station.stationId,
               address: station.address ?? "",
               lat: station.lat,
               lng: station.lng,
               stationId: station.stationId,
-            })
-          }
+            });
+          }}
           className={[
-            "relative flex items-center justify-center gap-1 rounded-[var(--radius-pill)] bg-[var(--accent)] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:opacity-90 touch-manipulation",
+            "relative flex items-center justify-center gap-1 rounded-[var(--radius-pill)] bg-[var(--accent)] px-4 py-2.5 text-[13px] font-semibold text-white touch-manipulation",
             routeMode || metaMode ? "flex-[1.4]" : "flex-[1.3]",
+            recommendActive
+              ? "cursor-not-allowed opacity-40"
+              : "transition hover:opacity-90",
           ].join(" ")}
         >
           {routeMode && routeStatus === "ready" ? "다시 길찾기" : "길찾기"}

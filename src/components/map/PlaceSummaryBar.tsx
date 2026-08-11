@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/Unimplemented";
 import { useLocationStore } from "@/stores/locationStore";
 import { useMapStore } from "@/stores/mapStore";
+import { usePlaceCategoryStore } from "@/stores/placeCategoryStore";
 import { useRecommendStore } from "@/stores/recommendStore";
 import { useRouteStore } from "@/stores/routeStore";
 
@@ -22,6 +23,7 @@ declare global {
  * After place search select: compact summary + 길찾기 (origin = 현위치).
  * Shared startDirections also used by StationDetailCard.
  * Minimize collapses UI only — does NOT clearDestination (안내종료만 종료).
+ * AI 추천: 카테고리 칩 활성 중에는 숨김(길찾기와 혼동 방지). 일반 장소·충전소 도착지는 노출.
  */
 export function PlaceSummaryBar() {
   const destination = useRouteStore((s) => s.destination);
@@ -32,6 +34,7 @@ export function PlaceSummaryBar() {
   const loadRecommendations = useRecommendStore((s) => s.loadForDestination);
   const recommendActive = useRecommendStore((s) => s.active);
   const recommendLoading = useRecommendStore((s) => s.loading);
+  const categoryActive = usePlaceCategoryStore((s) => s.active);
   const selectedId = useMapStore((s) => s.selectedId);
   const setSelectedId = useMapStore((s) => s.setSelectedId);
   const setCenter = useMapStore((s) => s.setCenter);
@@ -93,6 +96,7 @@ export function PlaceSummaryBar() {
 
   // Station detail owns 길찾기 while a station is selected.
   if (!destination || selectedId) return null;
+  if (recommendActive) return null;
 
   const showUnimplemented = error === "__UNIMPLEMENTED__";
   const routeActive = status === "loading" || status === "ready";
@@ -304,7 +308,7 @@ export function PlaceSummaryBar() {
               안내종료
             </button>
           ) : null}
-          {!routeActive ? (
+          {!routeActive && !categoryActive ? (
             <button
               type="button"
               onClick={runAiRecommend}

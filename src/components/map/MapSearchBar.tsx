@@ -11,6 +11,7 @@ import {
 import {
   searchTmapPlaces,
   type TmapPlaceResult,
+  searchTmapPlacesAround,
 } from "@/lib/tmap/searchPlaces";
 import { useMapStore } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
@@ -21,6 +22,16 @@ import {
   UnimplementedBadge,
   UnimplementedHint,
 } from "@/components/ui/Unimplemented";
+import { PlaceCategoryChips } from "@/components/map/PlaceCategoryChips";
+import {
+  PLACE_CATEGORY_CHIPS,
+  type PlaceCategoryId,
+} from "@/lib/map/placeCategories";
+import { haversineMeters } from "@/lib/map/stationHit";
+import { usePlaceCategoryStore } from "@/stores/placeCategoryStore";
+
+/** 자유주행 fake GPS 이동 시 카테고리 around 재검색 최소 거리 */
+const CATEGORY_ORIGIN_REFETCH_MIN_M = 150;
 
 type MapSearchBarProps = {
   onPlaceSelect?: (place: TmapPlaceResult) => void;
@@ -74,9 +85,12 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
       if (!trimmed) {
         setResults([]);
         setError(null);
+        usePlaceCategoryStore.getState().clear();
         return;
       }
       setOpen(true);
+      // 키워드 검색 시 카테고리 마커 해제
+      usePlaceCategoryStore.getState().clear();
 
       if (!FEATURES.tmapPlaceSearch) {
         setResults([]);
@@ -106,10 +120,127 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
   [],
   );
 
+  const radiusKm = useMapStore((s) => s.radiusKm);
+  const categoryActive = usePlaceCategoryStore((s) => s.active);
+  const categoryId = usePlaceCategoryStore((s) => s.categoryId);
+  const testMode = useLocationStore((s) => s.testMode);
+  const coords = useLocationStore((s) => s.coords);
+  const stationsAnchor = useMapStore((s) => s.stationsAnchor);
+  const prevRadiusKmRef = useRef(radiusKm);
+  /** 마지막 around 조회 원점 — 자유주행 탭 재검색 스로틀 */
+  const lastCategoryOriginRef = useRef<{ lat: number; lng: number } | null>(
+    null,
+  );
+
+  const runCategorySearch = useCallback(
+    async (
+      nextId: PlaceCategoryId | null,
+      category: string | null,
+      opts?: { silent?: boolean },
+    ) => {
+      if (!nextId || !category) {
+        setResults([]);
+        setError(null);
+        usePlaceCategoryStore.getState().clear();
+        lastCategoryOriginRef.current = null;
+        return;
+      }
+      if (!opts?.silent) {
+        // 키워드가 있을 때만 skip — 빈 query면 effect가 안 돌아 skip이 고착됨
+        setQuery((prev) => {
+          if (prev.trim()) skipDebouncedSearchRef.current = true;
+          return "";
+        });
+        // 모바일: 지도 마커만 — 결과 리스트 닫음. 데스크톱: 리스트 유지.
+        if (isCompact) {
+          setOpen(false);
+          setInputFocused(false);
+          inputRef.current?.blur();
+        } else {
+          setOpen(true);
+        }
+      }
+
+      if (!FEATURES.tmapPlaceSearch) {
+        setResults([]);
+        setLoading(false);
+        setError("__UNIMPLEMENTED__");
+        usePlaceCategoryStore.getState().clear();
+        return;
+      }
+
+      // 충전소 조회와 동일: 도착지(stationsAnchor) → GPS → 지도 center
+      const { center, radiusKm: km, stationsAnchor: anchor } =
+        useMapStore.getState();
+      const loc = useLocationStore.getState().coords;
+      const origin = anchor ?? loc ?? center;
+      lastCategoryOriginRef.current = { lat: origin.lat, lng: origin.lng };
+      setLoading(true);
+      setError(null);
+      try {
+        const items = await searchTmapPlacesAround({
+          categories: category,
+          lat: origin.lat,
+          lng: origin.lng,
+          radiusKm: km,
+        });
+        setResults(items);
+        usePlaceCategoryStore.getState().setResults(nextId, items);
+        // 성공·빈 결과: UI 메시지 없음
+        if (isCompact) setOpen(false);
+      } catch (err) {
+        console.error("[places/around]", { category, origin, err });
+        setResults([]);
+        usePlaceCategoryStore.getState().clear();
+        setError("검색에 실패했습니다");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [isCompact],
+  );
+
+  // 반경 1·2·3 변경 → 활성 카테고리 around 자동 재검색 (마커·리스트)
+  useEffect(() => {
+    if (prevRadiusKmRef.current === radiusKm) return;
+    prevRadiusKmRef.current = radiusKm;
+    if (!categoryActive || !categoryId) return;
+    const chip = PLACE_CATEGORY_CHIPS.find((c) => c.id === categoryId);
+    if (!chip) return;
+    void runCategorySearch(categoryId, chip.category, { silent: true });
+  }, [radiusKm, categoryActive, categoryId, runCategorySearch]);
+
+  // 자유주행 탭(fake GPS) → 칩이 켜져 있으면 그 점 주변 재검색
+  // 도착지(stationsAnchor) 고정 시에는 원점 유지
+  useEffect(() => {
+    if (!testMode || !categoryActive || !categoryId || !coords) return;
+    if (stationsAnchor) return;
+    const prev = lastCategoryOriginRef.current;
+    if (!prev) return;
+    if (haversineMeters(prev, coords) < CATEGORY_ORIGIN_REFETCH_MIN_M) return;
+    const chip = PLACE_CATEGORY_CHIPS.find((c) => c.id === categoryId);
+    if (!chip) return;
+    void runCategorySearch(categoryId, chip.category, { silent: true });
+  }, [
+    testMode,
+    categoryActive,
+    categoryId,
+    coords?.lat,
+    coords?.lng,
+    stationsAnchor,
+    runCategorySearch,
+  ]);
+
   useEffect(() => {
     if (!query.trim()) {
+      // 칩 검색이 query를 비운 경우 — results clear 금지 (레이스)
+      if (skipDebouncedSearchRef.current) {
+        skipDebouncedSearchRef.current = false;
+        return;
+      }
       setResults([]);
       setError(null);
+      // 칩 마커는 active면 유지 — clearQuery/칩 off만 clear
       return;
     }
     if (skipDebouncedSearchRef.current) {
@@ -179,6 +310,7 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
     setFollow(false);
     setSelectedId(null);
     setMobileSheetSnap("peek");
+    usePlaceCategoryStore.getState().setSelectedId(place.id);
     setDestination({
       name: place.name,
       address: place.address,
@@ -212,6 +344,7 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
     setResults([]);
     setError(null);
     setOpen(false);
+    usePlaceCategoryStore.getState().clear();
     inputRef.current?.focus();
   };
 
@@ -361,6 +494,12 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
       className="pointer-events-auto w-full max-w-full min-[361px]:max-w-[min(100%,380px)]"
     >
       {searchForm}
+      {/* 검색바 펼침 시에만 칩 (compact 접힘 = 아이콘만). */}
+      <PlaceCategoryChips
+        onSelect={(id, category) => {
+          void runCategorySearch(id, category);
+        }}
+      />
       {!FEATURES.tmapPlaceSearch && (
         <div className="mt-2">
           <UnimplementedHint>
