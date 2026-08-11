@@ -10,6 +10,7 @@ import { StationDetailCard } from "@/components/map/StationDetailCard";
 import { PlaceSummaryBar } from "@/components/map/PlaceSummaryBar";
 import { RecommendStationPanel } from "@/components/map/RecommendStationPanel";
 import RecommendMarkers from "@/components/map/RecommendMarkers";
+import PlaceCategoryMarkers from "@/components/map/PlaceCategoryMarkers";
 import { RoutePolyline } from "@/components/map/RoutePolyline";
 import { RouteLiveRefresh } from "@/components/map/RouteLiveRefresh";
 import { myLocationMarkerIcon } from "@/lib/tmap/roleMarkers";
@@ -741,6 +742,7 @@ export function MapView() {
         <div id={MAP_ELEMENT_ID} ref={mapRef} className="h-full w-full" />
         <StationMarkers />
         <RecommendMarkers />
+        <PlaceCategoryMarkers />
       </div>
 
       {/* UI chrome — sibling stacking context above the map trap */}

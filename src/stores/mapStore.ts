@@ -96,6 +96,7 @@ type MapState = {
   setZoom: (z: number) => void;
   setRadiusKm: (r: RadiusKm) => void;
   setStations: (items: Station[]) => void;
+  upsertStations: (items: Station[]) => void;
   setSelectedId: (id: string | null) => void;
   setMobileSheetSnap: (snap: MobileSheetSnap) => void;
   setSearchUiOpen: (open: boolean) => void;
@@ -110,6 +111,11 @@ type MapState = {
    * Stops GPS follow so the camera does not snap back.
    */
   selectStation: (id: string | null) => void;
+  /**
+   * AI 추천 미리보기용 — selectedId + pan만. destination은 건드리지 않음.
+   * (selectStation은 clearDestination 하므로 AI 플로우에서 쓰지 말 것)
+   */
+  focusStationOnMap: (id: string, coords?: { lat: number; lng: number }) => void;
   setLoading: (v: boolean) => void;
   setError: (e: string | null) => void;
   setMap: (map: any) => void;
@@ -138,7 +144,27 @@ export const useMapStore = create<MapState>((set, get) => ({
   setCenter: (center) => set({ center }),
   setZoom: (zoom) => set({ zoom }),
   setRadiusKm: (radiusKm) => set({ radiusKm }),
-  setStations: (stations) => set({ stations }),
+  setStations: (stations) =>
+    set((s) => {
+      const selected =
+        s.selectedId != null
+          ? s.stations.find((x) => x.stationId === s.selectedId)
+          : null;
+      let next = stations;
+      if (
+        selected &&
+        !stations.some((x) => x.stationId === selected.stationId)
+      ) {
+        next = [...stations, selected];
+      }
+      return { stations: next };
+    }),
+  upsertStations: (items) =>
+    set((s) => {
+      const byId = new Map(s.stations.map((x) => [x.stationId, x]));
+      for (const item of items) byId.set(item.stationId, item);
+      return { stations: [...byId.values()] };
+    }),
   setSelectedId: (selectedId) => set({ selectedId }),
   setMobileSheetSnap: (mobileSheetSnap) => set({ mobileSheetSnap }),
   setSearchUiOpen: (searchUiOpen) => set({ searchUiOpen }),
@@ -189,7 +215,32 @@ export const useMapStore = create<MapState>((set, get) => ({
       }
     }
   },
+  focusStationOnMap: (id, coords) => {
+    const { stations, map, mobileSheetSnap } = get();
+    const station = stations.find((s) => s.stationId === id);
+    const lat = station?.lat ?? coords?.lat;
+    const lng = station?.lng ?? coords?.lng;
+    const wasExpanded = mobileSheetSnap !== "peek";
+
+    useLocationStore.getState().setFollow(false);
+    set({
+      selectedId: id,
+      mobileSheetSnap: "peek",
+      ...(lat != null && lng != null ? { center: { lat, lng } } : {}),
+    });
+
+    if (lat != null && lng != null) {
+      panMapTo(lat, lng, map);
+      if (wasExpanded) {
+        window.setTimeout(() => {
+          const m = get().map;
+          if (m && typeof m.resize === "function") m.resize();
+        }, 220);
+      }
+    }
+  },
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
   setMap: (map) => set({ map }),
+  
 }));

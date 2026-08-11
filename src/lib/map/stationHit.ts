@@ -65,14 +65,25 @@ export function nearestStation(
   lng: number,
   maxM: number = STATION_HIT_MAX_M,
 ): Station | null {
-  let best: Station | null = null;
+  const hit = nearestLatLngItem(stations, lat, lng, maxM);
+  return hit?.item ?? null;
+}
+
+/** 탭 hit-test용 — 거리(m) 포함 (충전소 vs 카테고리 POI 우선순위). */
+export function nearestLatLngItem<T extends { lat: number; lng: number }>(
+  items: readonly T[],
+  lat: number,
+  lng: number,
+  maxM: number = STATION_HIT_MAX_M,
+): { item: T; distanceM: number } | null {
+  let best: T | null = null;
   let bestD = maxM;
-  for (const s of stations) {
+  for (const s of items) {
     const d = haversineMeters({ lat, lng }, s);
     if (d < bestD) {
       bestD = d;
       best = s;
     }
   }
-  return best;
+  return best ? { item: best, distanceM: bestD } : null;
 }

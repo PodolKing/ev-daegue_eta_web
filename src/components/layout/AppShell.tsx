@@ -48,6 +48,7 @@ export function AppShell() {
 
   const radiusKm = useMapStore((s) => s.radiusKm);
   const stationsAnchor = useMapStore((s) => s.stationsAnchor);
+  const searchUiOpen = useMapStore((s) => s.searchUiOpen);
   const setCenter = useMapStore((s) => s.setCenter);
   const setStations = useMapStore((s) => s.setStations);
   const setLoading = useMapStore((s) => s.setLoading);
@@ -248,10 +249,12 @@ export function AppShell() {
           <TopBar apiOnline={apiOnline} />
           <MapView />
 
-          {/* 이 지역 검색 칩 — 시트(z-30)보다 위 */}
-          <div className="pointer-events-none absolute inset-x-0 top-[6.5rem] z-[40] flex justify-center px-3">
-            <SearchThisAreaButton />
-          </div>
+          {/* 이 지역 검색 칩 — 모바일은 검색○(top 4.75rem) 아래로. 검색 UI 열리면 숨김 */}
+          {!searchUiOpen ? (
+            <div className="pointer-events-none absolute inset-x-0 top-[9rem] z-[40] flex justify-center px-3 md:top-[6.5rem]">
+              <SearchThisAreaButton />
+            </div>
+          ) : null}
 
           {/* md+: toggle station list side panel */}
           <button

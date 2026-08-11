@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useRecommendStore } from "@/stores/recommendStore";
+import { ensureStationLoaded } from "@/stores/ensureStationLoaded";
 
 declare global {
   interface Window {
@@ -71,6 +72,7 @@ export default function RecommendMarkers() {
   const items = useRecommendStore((s) => s.items);
   const selectedStatId = useRecommendStore((s) => s.selectedStatId);
   const setSelectedStatId = useRecommendStore((s) => s.setSelectedStatId);
+  const focusStationOnMap = useMapStore((s) => s.focusStationOnMap);
   const markersRef = useRef<Map<string, any>>(new Map());
 
   useEffect(() => {
@@ -139,7 +141,17 @@ export default function RecommendMarkers() {
         icon,
       });
 
-      const onClick = () => setSelectedStatId(item.statId);
+      const onClick = () => {
+        setSelectedStatId(item.statId);
+        void ensureStationLoaded(item.statId, item.lat, item.lng).then(
+          (station) => {
+            focusStationOnMap(item.statId, {
+              lat: station?.lat ?? item.lat,
+              lng: station?.lng ?? item.lng,
+            });
+          },
+        );
+      };
       try {
         if (typeof marker.addListener === "function") {
           marker.addListener("click", onClick);
@@ -152,7 +164,14 @@ export default function RecommendMarkers() {
 
       markersRef.current.set(item.statId, marker);
     });
-  }, [map, active, items, selectedStatId, setSelectedStatId]);
+  }, [
+    map,
+    active,
+    items,
+    selectedStatId,
+    setSelectedStatId,
+    focusStationOnMap,
+  ]);
 
   useEffect(() => {
     return () => {

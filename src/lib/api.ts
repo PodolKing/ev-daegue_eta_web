@@ -46,6 +46,15 @@ export function limitForRadiusKm(radiusKm: RadiusKm | number): number {
   return 200;
 }
 
+/** 카테고리 around limit — 1→50 / 2→100 / 3→150 */
+export function placeAroundLimitForRadiusKm(
+  radiusKm: RadiusKm | number,
+): number {
+  if (radiusKm <= 1) return 50;
+  if (radiusKm <= 2) return 100;
+  return 150;
+}
+
 export async function fetchStations(params: {
   lat: number;
   lng: number;
