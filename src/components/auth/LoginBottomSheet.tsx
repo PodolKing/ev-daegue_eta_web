@@ -53,9 +53,9 @@ export function LoginBottomSheet({
 
         <Link
           href={loginHref}
-          className="mt-5 flex w-full items-center justify-center rounded-[var(--radius-pill)] bg-[#FEE500] px-4 py-3 text-[14px] font-semibold text-[#191600]"
+          className="mt-5 flex w-full items-center justify-center rounded-[var(--radius-pill)] bg-[var(--text)] px-4 py-3 text-[14px] font-semibold text-white"
         >
-          카카오 로그인
+          로그인하기
         </Link>
 
         {/* ========== 일반 회원가입 ==========

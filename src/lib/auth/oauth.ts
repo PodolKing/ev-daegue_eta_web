@@ -61,3 +61,18 @@ export async function handlePostLoginLanding(): Promise<void> {
   consumeOAuthAccessTokenFromUrl();
   await useAuthStore.getState().fetchMe();
 }
+
+/** BE `/login?oauthError=` → 사용자 문구 */
+export function formatOAuthError(raw: string | null | undefined): string {
+  const t = (raw ?? "").trim();
+  if (!t) return "소셜 로그인에 실패했습니다. 다시 시도해 주세요.";
+  if (t.includes("만료")) return "로그인 요청이 만료되었습니다. 다시 시도해 주세요.";
+  if (t.includes("위조") || t.includes("불일치")) {
+    return "로그인 요청이 유효하지 않습니다. 다시 시도해 주세요.";
+  }
+  if (t.includes("미설정") || t.includes("환경변수") || t.includes("JWT")) {
+    return "서버 인증 설정 오류입니다. 관리자에게 문의해 주세요.";
+  }
+  if (t.length > 80) return "소셜 로그인에 실패했습니다. 다시 시도해 주세요.";
+  return t;
+}

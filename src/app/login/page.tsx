@@ -2,11 +2,33 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, ReactNode, Suspense, useState } from "react";
+import { FormEvent, ReactNode, Suspense, useState, useEffect } from "react";
 import { getApiBase } from "@/lib/api";
-import { startOAuthRedirect, type OAuthProvider } from "@/lib/auth/oauth";
+import {
+  formatOAuthError,
+  startOAuthRedirect,
+  type OAuthProvider,
+} from "@/lib/auth/oauth";
 import { DEFAULT_MAP_PATH, sanitizeReturnUrl } from "@/lib/auth/returnUrl";
 import { useAuthStore } from "@/stores/authStore";
+
+function formatLoginError(detail: unknown): string {
+  if (typeof detail === "string" && detail.trim()) {
+    const t = detail.trim();
+    if (
+      t.includes("password") ||
+      t.includes("userId") ||
+      t.includes("id 또는")
+    ) {
+      return "아이디 또는 비밀번호가 올바르지 않습니다.";
+    }
+    if (t.includes("JWT_SECRET")) {
+      return "서버 인증 설정 오류입니다. 관리자에게 문의해 주세요.";
+    }
+    return t;
+  }
+  return "아이디 또는 비밀번호가 올바르지 않습니다.";
+}
 
 function KakaoIcon({ size = 18 }: { size?: number }) {
   return (
@@ -59,18 +81,26 @@ function SocialLoginButton({
   label,
   icon,
   className,
+  disabled,
+  onStart,
 }: {
   provider: OAuthProvider;
   returnUrl: string;
   label: string;
   icon: ReactNode;
   className: string;
+  disabled?: boolean;
+  onStart?: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={() => startOAuthRedirect(provider, returnUrl)}
-      className={className}
+      disabled={disabled}
+      onClick={() => {
+        onStart?.();
+        startOAuthRedirect(provider, returnUrl);
+      }}
+      className={`${className} disabled:opacity-60`}
     >
       <span className="pointer-events-none absolute left-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.06]">
         {icon}
@@ -80,19 +110,7 @@ function SocialLoginButton({
   );
 }
 
-function formatLoginError(detail: unknown): string {
-  if (typeof detail === "string" && detail.trim()) {
-    const t = detail.trim();
-    if (t.includes("password") || t.includes("userId") || t.includes("id 또는")) {
-      return "아이디 또는 비밀번호가 올바르지 않습니다.";
-    }
-    if (t.includes("JWT_SECRET")) {
-      return "서버 인증 설정 오류입니다. 관리자에게 문의해 주세요.";
-    }
-    return t;
-  }
-  return "아이디 또는 비밀번호가 올바르지 않습니다.";
-}
+
 
 function LoginPageContent() {
   const searchParams = useSearchParams();
@@ -102,7 +120,16 @@ function LoginPageContent() {
   const setPointsBalance = useAuthStore((s) => s.setPointsBalance);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
 
+    useEffect(() => {
+      const oauthError = searchParams.get("oauthError");
+      if (!oauthError) return;
+      setError(formatOAuthError(oauthError));
+      const url = new URL(window.location.href);
+      url.searchParams.delete("oauthError");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    }, [searchParams]);
   const btnBase =
     "relative flex w-full items-center justify-center rounded-[var(--radius-pill)] px-4 py-2.5 text-[14px] font-semibold shadow-[var(--shadow-sm)] transition-[filter,transform,box-shadow] duration-150 ease-out touch-manipulation hover:brightness-[0.97] active:scale-[0.985] active:brightness-[0.94] sm:py-3 sm:text-[15px]";
 
@@ -260,7 +287,7 @@ function LoginPageContent() {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || isSocialLoading}
             className={`${btnBase} bg-[var(--text)] text-white hover:brightness-110 disabled:opacity-60`}
           >
             {isLoading ? "로그인 중…" : "로그인"}
@@ -279,22 +306,28 @@ function LoginPageContent() {
           <SocialLoginButton
             provider="kakao"
             returnUrl={returnUrl}
-            label="카카오로 계속하기"
+            label={isSocialLoading ? "이동 중…" : "카카오로 계속하기"}
             icon={<KakaoIcon />}
+            disabled={isLoading || isSocialLoading}
+            onStart={() => setIsSocialLoading(true)}
             className={`${socialBtnBase} bg-[#FEE500] text-[#191600] shadow-[0_1px_2px_rgba(25,22,0,0.08)]`}
           />
           <SocialLoginButton
             provider="google"
             returnUrl={returnUrl}
-            label="Google로 계속하기"
+            label={isSocialLoading ? "이동 중…" : "Google로 계속하기"}
             icon={<GoogleIcon />}
+            disabled={isLoading || isSocialLoading}
+            onStart={() => setIsSocialLoading(true)}
             className={`${socialBtnBase} border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--surface-muted)]`}
           />
           <SocialLoginButton
             provider="naver"
             returnUrl={returnUrl}
-            label="네이버로 계속하기"
+            label={isSocialLoading ? "이동 중…" : "네이버로 계속하기"}
             icon={<NaverIcon />}
+            disabled={isLoading || isSocialLoading}
+            onStart={() => setIsSocialLoading(true)}
             className={`${socialBtnBase} bg-[#03C75A] text-white shadow-[0_1px_2px_rgba(0,80,40,0.18)] [&_span:first-child]:bg-white/15`}
           />
         </div>
