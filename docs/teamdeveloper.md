@@ -1999,14 +1999,96 @@ unSearch는 useMapStore.getState().center + useCallback([], [])로 center deps �
 ## 2026-08-05 — 주변 탐색(map) 모드: 칩 진입 + pan 연속 조회
 
 ### 한 일
-- 「주변 탐색하기」희미한 칩: 조회 원점에서 ~500m 이상일 때 표시. 탭 시 stationsAnchor source=map (반경 원 없음).
-- map 모드 중: pan idle 450ms + 250m 이상 이동 시 카메라 중심으로 재조회. 상태 칩「화면 따라 검색 중」.
-- OFF: ◎ 현위치 탭 시 map anchor 해제 / 카메라가 GPS 300m 이내면 자동 해제.
-- 카메라 sync: MapView 잠금 유지, getCenter를 pointerup·dragend로 store 반영 (useSyncMapCenterFromCamera).
+- 같은 칩 스위칭: 「주변 탐색하기」↔「현위치로 돌아가기」(선명 칩). 조회 원점 ~500m 이상일 때 진입 칩.
+- 탭 시 stationsAnchor source=map → 반경 원 없음, pan idle 450ms + 250m 이상이면 카메라 중심 재조회.
+- OFF: 칩「현위치로 돌아가기」/ ◎ 현위치 / 카메라가 GPS 300m 이내 자동 해제.
+- 카메라 sync: MapView 잠금 유지. useSyncMapCenterFromCamera(pointerup·dragend → getCenter).
+- policy: web/src/lib/map/mapSearchPolicy.ts (거리·debounce·ALLOW 플래그).
 
 ### 결정
 - 기본 강점(현위치·도착지) 유지. 카메라 추종 조회는 명시 진입 후에만.
 - 매 프레임 조회 금지 — idle debounce + 거리 throttle.
+- map 모드에서는 반경 원을 그리지 않음 (도착지 pin·here는 기존).
 
 ### 다음
 - 체감 민감도(500/300/250/450ms) 조정. AI 중 진입은 policy false 유지.
+
+## 2026-08-06 — Render: requirements.txt UTF-8 · Python 3.11
+
+### 한 일
+- \pi/requirements.txt\ UTF-16(널 바이트) → UTF-8 재저장. Render \pip install\ Invalid requirement 해소.
+- \pi/.python-version\ = .11.11\ (Render 기본 3.14 회피).
+
+### 결정
+- Linux/Render용 텍스트는 UTF-8. Windows에서 requirements 저장 시 UTF-16 금지.
+
+### 다음
+- api 커밋·푸시 후 Render 재배포. Env: \CORS_ORIGINS\/\FRONTEND_ORIGIN\=Vercel URL, \APP_ENV=production\.
+
+## 2026-08-10 — 소셜 로그인 FE: oauthError + 버튼 로딩
+
+### 한 일
+- `web/src/lib/auth/oauth.ts`: `formatOAuthError` 추가 (BE `/login?oauthError=` 문구 매핑).
+- `web/src/app/login/page.tsx`: oauthError useEffect, 소셜 버튼 disabled/onStart/이동 중 라벨, 로컬 `formatLoginError` 분리.
+- `web/src/components/auth/LoginBottomSheet.tsx`: 문구 「로그인하기」 + 일반 버튼 스타일 (`/login` 진입, 카카오 직행 아님).
+
+### 결정
+- 소셜 시작 URL·토큰 소비는 기존 `startOAuthRedirect` / `handlePostLoginLanding` 유지. 전용 콜백 페이지 없음.
+- 시트는 로그인 페이지로 보내고, 소셜 선택은 로그인 화면에서.
+
+### 다음
+- 제공자 콘솔 redirect + BE env 스모크 (카카오/구글/네이버 실로그인).
+- 실패 시 `/login?oauthError=` UI 확인.
+
+## 2026-08-11 — 네이버 소셜 닉네임: 네이버+번호
+
+### 한 일
+- pi/app/domains/auth/service.py: 네이버 가입 시 UI nickname을 네이버+4자리 랜덤(예: 네이버4821)으로 생성. 식별값(
+aver_{id}) 노출 제거.
+- 기존 
+aver_… 닉네임 계정은 다음 로그인 시 1회 교체.
+
+### 결정
+- TopBar 표시값은 user.nickname이 맞음 (userId/provider_id 아님).
+- 네이버 프로필 nickname/name은 쓰지 않음 — 식별형·비공개 스코프 대비.
+
+### 다음
+- API 재시작 후 네이버 재로그인으로 TopBar 닉네임 확인.
+
+## 2026-08-11 — 소셜 닉네임 통일: 구글/카카오/네이버+번호
+
+### 한 일
+- pi/app/domains/auth/service.py: 구글·카카오·네이버 가입 UI nickname을 구글/카카오/네이버+4자리로 통일. 프로필명·이메일·식별값 미사용.
+- 기존 소셜 계정은 다음 로그인 시 새 형식이 아니면 1회 교체.
+- 일반(local) 로그인은 가입 시 입력한 nickname 그대로 TopBar 표시 (변경 없음).
+
+### 결정
+- TopBar는 항상 user.nickname. 소셜만 자동 생성, 로컬은 사용자 입력값.
+
+### 다음
+- API 재시작 후 카카오/구글/네이버·일반 로그인 TopBar 확인.
+
+## 2026-08-11 — 카카오 OAuth: profile_nickname scope 제거
+
+### 한 일
+- pi/app/domains/auth/service.py: 카카오 authorize scope에서 profile_nickname 제거.
+- 원인: 콘솔 동의항목이 사용 안 함인데 scope를 요청해 인가 코드 오류 발생.
+
+### 결정
+- 소셜 닉네임은 서버 생성(카카오+번호)이므로 카카오 프로필 동의 불필요. 콘솔은 사용 안 함 유지.
+
+### 다음
+- API 재시작 후 카카오 로그인 재시도.
+
+## 2026-08-11 — 카카오 토큰 교환: client_secret_post
+
+### 한 일
+- 로그: kakao/callback 500 — invalid_client: Not exist client_id [null].
+- 원인: Authlib 기본 client_secret_basic(헤더) → 카카오가 body client_id를 null로 인식.
+- exchange_code_for_token에 token_endpoint_auth_method=client_secret_post 적용. OAuthError→HTTPException.
+
+### 결정
+- 소셜 토큰 교환은 form body 인증으로 통일 (카카오/구글/네이버).
+
+### 다음
+- API reload 후 카카오 로그인 재시도.

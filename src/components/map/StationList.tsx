@@ -126,7 +126,7 @@ export function StationList({ compactHeader = false }: StationListProps) {
               ) : stations.length > 0 && !includeSlow ? (
                 "완속만 있는 충전소입니다. 완속 필터를 켜 보세요."
               ) : (
-                "DB 연결 후 현위치 기준으로 불러옵니다"
+                "현재 대구지역 충전소만 불러옵니다"
               )}
             </p>
             {carPortFilterOn ? (
