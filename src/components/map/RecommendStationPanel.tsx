@@ -163,14 +163,14 @@ export function RecommendStationPanel() {
                   type="button"
                   onClick={() => void preview(item)}
                   className={[
-                    "flex w-full items-start gap-2 rounded-[var(--radius-md)] px-2 py-2 text-left touch-manipulation",
+                    "flex w-full items-center gap-2 rounded-[var(--radius-md)] px-2 py-2 text-left touch-manipulation",
                     on
                       ? "bg-[var(--accent-soft)]"
                       : "hover:bg-[var(--surface-muted)]",
                   ].join(" ")}
                 >
                   <span
-                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[11px] font-bold text-white"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[11px] font-bold text-white"
                     aria-hidden
                   >
                     {rank}
@@ -181,12 +181,29 @@ export function RecommendStationPanel() {
                     </span>
                     <span className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
                       {item.recommendationLabel ?? "—"}
-                      {score != null ? ` · ${score}점` : ""}
                       {item.distanceM != null
                         ? ` · ${(item.distanceM / 1000).toFixed(1)}km`
                         : ""}
                     </span>
                   </span>
+                  {score != null ? (
+                    <span
+                      className="flex shrink-0 flex-col items-end leading-none"
+                      aria-label={`${score}점`}
+                    >
+                      <span
+                        className="text-[22px] font-bold tabular-nums tracking-tight text-[var(--accent)]"
+                        style={{
+                          fontFamily: "var(--font-display), sans-serif",
+                        }}
+                      >
+                        {score}
+                      </span>
+                      <span className="mt-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+                        점
+                      </span>
+                    </span>
+                  ) : null}
                 </button>
               </li>
             );

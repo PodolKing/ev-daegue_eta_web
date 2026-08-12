@@ -52,9 +52,6 @@ export function TopBar({ apiOnline }: { apiOnline: boolean | null }) {
             >
               EV SafeCharge
             </p>
-            <p className="hidden truncate text-[11px] text-[var(--text-muted)] min-[400px]:block">
-              대구 · 도착 시 충전 가능 추천
-            </p>
           </div>
         </div>
       </div>

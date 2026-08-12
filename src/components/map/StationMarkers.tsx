@@ -18,7 +18,13 @@ import {
   nearestLatLngItem,
   stationHitMaxMForMap,
 } from "@/lib/map/stationHit";
+import {
+  cascadeMarkerLayout,
+  markerZForSelection,
+  zoomFromMap,
+} from "@/lib/map/stationMarkerCascade";
 import { usePlaceCategoryStore } from "@/stores/placeCategoryStore";
+import { stationCalloutMarkerIcon } from "@/lib/tmap/stationCalloutMarker";
 
 const MAP_ELEMENT_ID = "ev-tmap-map";
 /** 폴드·터치 미세 흔들림 허용 (기존 14는 취소가 잦음) */
@@ -31,69 +37,10 @@ function blockStationPick(): boolean {
   return status === "loading" || status === "ready";
 }
 
-
-
 declare global {
   interface Window {
     Tmapv2: any;
   }
-}
-
-/** Colors aligned with StationList tones; easy to tweak later. */
-function markerStyle(available: number | null): { fill: string } {
-  if (available === null) return { fill: "#8b929e" };
-  if (available === 0) return { fill: "#c47f17" };
-  return { fill: "#1f9d63" };
-}
-
-function formatLabel(
-  available: number | null,
-  total: number | null | undefined,
-): string {
-  const a = available === null ? "—" : String(available);
-  const t = total == null ? "—" : String(total);
-  return `${a}/${t}`;
-}
-
-const _iconUrlCache = new Map<string, string>();
-
-function buildCircleIconUrl(
-  label: string,
-  fill: string,
-  selected: boolean,
-): string {
-  const cacheKey = `${label}|${fill}|${selected ? 1 : 0}`;
-  const cached = _iconUrlCache.get(cacheKey);
-  if (cached) return cached;
-
-  const size = 48;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return "";
-
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = size / 2 - 2;
-
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = fill;
-  ctx.fill();
-  ctx.lineWidth = selected ? 3 : 2;
-  ctx.strokeStyle = selected ? "#1a1d24" : "#ffffff";
-  ctx.stroke();
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = 'bold 11px "Noto Sans KR", system-ui, sans-serif';
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(label, cx, cy + 0.5);
-
-  const url = canvas.toDataURL("image/png");
-  _iconUrlCache.set(cacheKey, url);
-  return url;
 }
 
 function markerIcon(
@@ -103,19 +50,18 @@ function markerIcon(
 ) {
   const available = availableCountForSlowFilter(station, includeSlow);
   const total = chargerTotalForSlowFilter(station, includeSlow);
-  const { fill } = markerStyle(available);
-  const label = formatLabel(available, total);
-  const url = buildCircleIconUrl(label, fill, selected);
-  if (!url || !window.Tmapv2) return undefined;
+  return stationCalloutMarkerIcon(available, total, selected);
+}
 
-  if (typeof window.Tmapv2.MarkerImage === "function") {
-    return new window.Tmapv2.MarkerImage(
-      url,
-      new window.Tmapv2.Size(48, 48),
-      new window.Tmapv2.Point(24, 24),
-    );
+function applyMarkerZ(marker: any, zIndex: number) {
+  try {
+    if (typeof marker.setZIndex === "function") marker.setZIndex(zIndex);
+    else if (typeof marker.setOptions === "function") {
+      marker.setOptions({ zIndex });
+    }
+  } catch {
+    /* ignore */
   }
-  return url;
 }
 
 function readTmapLatLng(ll: unknown): { lat: number; lng: number } | null {
@@ -224,94 +170,157 @@ export default function StationMarkers() {
 
 
   const markersRef = useRef<Map<string, any>>(new Map());
+  /** Last cascade base zIndex per station (selection only bumps on top). */
+  const baseZRef = useRef<Map<string, number>>(new Map());
   const stationsRef = useRef(visible);
   stationsRef.current = visible;
   const prevSelectedIdRef = useRef<string | null>(null);
 
-  // Create / refresh markers when map or filtered list changes (not on select).
+  // Positions: list + zoom only. Selection must not reshuffle cascade slots.
   useEffect(() => {
     if (!map || !window.Tmapv2?.Marker || !window.Tmapv2?.LatLng) {
       return;
     }
 
-    const selected = useMapStore.getState().selectedId;
-    const slowOn = useMapStore.getState().includeSlow;
-    const nextIds = new Set(visible.map((s) => s.stationId));
+    const syncPositions = () => {
+      const list = stationsRef.current;
+      const selected = useMapStore.getState().selectedId;
+      const slowOn = useMapStore.getState().includeSlow;
+      const z = zoomFromMap(map, useMapStore.getState().zoom);
+      const layoutMap = cascadeMarkerLayout(list, z);
+      const nextIds = new Set(list.map((s) => s.stationId));
 
-    markersRef.current.forEach((marker, id) => {
-      if (!nextIds.has(id)) {
-        marker.setMap(null);
-        markersRef.current.delete(id);
-      }
-    });
-
-    visible.forEach((station) => {
-      const position = new window.Tmapv2.LatLng(station.lat, station.lng);
-      const isSelected = station.stationId === selected;
-      const icon = markerIcon(station, isSelected, slowOn);
-      let marker = markersRef.current.get(station.stationId);
-
-      if (!marker) {
-        marker = new window.Tmapv2.Marker({
-          position,
-          map,
-          title: station.name ?? "충전소",
-          zIndex: 60,
-          ...(icon ? { icon } : {}),
-        });
-
-        const onPick = () => {
-          if (blockStationPick()) return;
-          useMapStore.getState().selectStation(station.stationId);
-        };
-
-        if (window.Tmapv2.Event?.addListener) {
-          window.Tmapv2.Event.addListener(marker, "click", onPick);
+      markersRef.current.forEach((marker, id) => {
+        if (!nextIds.has(id)) {
           try {
-            window.Tmapv2.Event.addListener(marker, "touchend", onPick);
+            marker.setMap(null);
           } catch {
-            /* some builds lack touchend */
+            /* ignore */
           }
-        } else if (typeof marker.addListener === "function") {
-          marker.addListener("click", onPick);
+          markersRef.current.delete(id);
+          baseZRef.current.delete(id);
         }
+      });
 
-        markersRef.current.set(station.stationId, marker);
-      } else {
-        if (typeof marker.setPosition === "function") {
-          marker.setPosition(position);
+      list.forEach((station) => {
+        const layout = layoutMap.get(station.stationId);
+        const lat = layout?.lat ?? Number(station.lat);
+        const lng = layout?.lng ?? Number(station.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const baseZ = layout?.zIndex ?? 60;
+        baseZRef.current.set(station.stationId, baseZ);
+        const zIndex = markerZForSelection(
+          baseZ,
+          station.stationId === selected,
+        );
+        const position = new window.Tmapv2.LatLng(lat, lng);
+        const isSelected = station.stationId === selected;
+        const icon = markerIcon(station, isSelected, slowOn);
+        let marker = markersRef.current.get(station.stationId);
+
+        if (!marker) {
+          marker = new window.Tmapv2.Marker({
+            position,
+            map,
+            title: station.name ?? "충전소",
+            zIndex,
+            ...(icon ? { icon } : {}),
+          });
+
+          const onPick = () => {
+            if (blockStationPick()) return;
+            useMapStore.getState().selectStation(station.stationId);
+          };
+
+          if (window.Tmapv2.Event?.addListener) {
+            window.Tmapv2.Event.addListener(marker, "click", onPick);
+            try {
+              window.Tmapv2.Event.addListener(marker, "touchend", onPick);
+            } catch {
+              /* some builds lack touchend */
+            }
+          } else if (typeof marker.addListener === "function") {
+            marker.addListener("click", onPick);
+          }
+
+          markersRef.current.set(station.stationId, marker);
+        } else {
+          try {
+            if (typeof marker.setPosition === "function") {
+              marker.setPosition(position);
+            }
+          } catch {
+            /* ignore */
+          }
+          if (icon && typeof marker.setIcon === "function") {
+            marker.setIcon(icon);
+          }
+          applyMarkerZ(marker, zIndex);
         }
-        if (icon && typeof marker.setIcon === "function") {
-          marker.setIcon(icon);
-        }
+      });
+    };
+
+    syncPositions();
+
+    let zoomListener: unknown = null;
+    try {
+      if (window.Tmapv2.Event?.addListener) {
+        zoomListener = window.Tmapv2.Event.addListener(
+          map,
+          "zoom_changed",
+          syncPositions,
+        );
       }
-    });
+    } catch {
+      /* ignore */
+    }
 
     return () => {
+      try {
+        if (
+          zoomListener != null &&
+          window.Tmapv2?.Event?.removeListener
+        ) {
+          window.Tmapv2.Event.removeListener(zoomListener);
+        }
+      } catch {
+        /* ignore */
+      }
       markersRef.current.forEach((marker) => {
-        marker.setMap(null);
+        try {
+          marker.setMap(null);
+        } catch {
+          /* ignore */
+        }
       });
       markersRef.current.clear();
+      baseZRef.current.clear();
     };
-  }, [map, visible]);
+  }, [map, visible, includeSlow]);
 
-  // Selection styling only — update previous + new marker (2 markers max, not full sweep).
+  // Selection: icon stroke + zIndex only — do not move markers.
   useEffect(() => {
     if (!map || !window.Tmapv2) return;
 
     const prevId = prevSelectedIdRef.current;
     prevSelectedIdRef.current = selectedId;
 
-    const idsToRefresh = new Set<string>();
-    if (prevId) idsToRefresh.add(prevId);
-    if (selectedId) idsToRefresh.add(selectedId);
+    const ids = new Set<string>();
+    if (prevId) ids.add(prevId);
+    if (selectedId) ids.add(selectedId);
 
-    idsToRefresh.forEach((id) => {
+    ids.forEach((id) => {
       const station = stationsRef.current.find((s) => s.stationId === id);
       const marker = markersRef.current.get(id);
-      if (!station || !marker || typeof marker.setIcon !== "function") return;
-      const icon = markerIcon(station, id === selectedId, includeSlow);
-      if (icon) marker.setIcon(icon);
+      if (!station || !marker) return;
+      const selected = id === selectedId;
+      if (typeof marker.setIcon === "function") {
+        const icon = markerIcon(station, selected, includeSlow);
+        if (icon) marker.setIcon(icon);
+      }
+      const baseZ = baseZRef.current.get(id) ?? 60;
+      applyMarkerZ(marker, markerZForSelection(baseZ, selected));
     });
   }, [map, selectedId, includeSlow]);
 
