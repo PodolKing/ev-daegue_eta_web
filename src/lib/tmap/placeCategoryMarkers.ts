@@ -1,5 +1,5 @@
 /**
- * Category POI marker icons (맛집·카페·편의점·주차장).
+ * Category POI marker icons (음식점·카페·편의점·주차장).
  * TMAP web SDK does not ship these — SVG data URLs (same idea as roleMarkers).
  */
 

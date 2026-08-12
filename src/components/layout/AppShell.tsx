@@ -7,10 +7,12 @@ import { TopBar } from "@/components/layout/TopBar";
 import { MapView } from "@/components/map/MapView";
 import { StationList } from "@/components/map/StationList";
 import { MobileStationSheet } from "@/components/map/MobileStationSheet";
+import { DestinationNearbyChip } from "@/components/map/DestinationNearbyChip";
 import { SearchThisAreaButton } from "@/components/map/SearchThisAreaButton";
 import { CarPanel } from "@/components/car/CarPanel";
 import { FavoritesPanel } from "@/components/favorites/FavoritesPanel";
-import { UnimplementedHint } from "@/components/ui/Unimplemented";
+import { MyPagePanel } from "@/components/mypage/MyPagePanel";
+import { PointsPanel } from "@/components/points/PointsPanel";
 import { fetchHealth, fetchStations } from "@/lib/api";
 import { useCompactLayout } from "@/lib/device/useCompactLayout";
 import { FEATURES } from "@/lib/features";
@@ -42,7 +44,7 @@ export function AppShell() {
   const [activeNav, setActiveNav] = useState<NavId>("map");
   const isCompact = useCompactLayout();
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
-  /** Station list side panel (md+ / non-compact) — default open. */
+  /** Station list side panel (non-compact / desktop) — default open. */
   const [listPanelOpen, setListPanelOpen] = useState(true);
   const didBootstrapCenter = useRef(false);
 
@@ -210,7 +212,10 @@ export function AppShell() {
   }, [isCompact, listPanelOpen, mobileSheetSnap]);
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-[var(--bg)]">
+    <div
+      className="flex h-dvh w-full overflow-hidden bg-[var(--bg)]"
+      data-layout={isCompact ? "compact" : "desktop"}
+    >
       {/* PC: left icon rail. Mobile: bottom nav instead (no rail / no toggle FAB). */}
       {!isCompact && (
         <div className="relative z-20 h-full w-[68px] shrink-0 border-r border-[var(--border)] bg-[var(--surface)]">
@@ -218,23 +223,23 @@ export function AppShell() {
         </div>
       )}
 
-      {/* Discord-like channel panel — desktop only */}
-      <div
-        className={[
-          "relative z-10 hidden h-full shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200 md:block",
-          listPanelOpen ? "w-[300px]" : "w-0 overflow-hidden border-r-0",
-        ].join(" ")}
-      >
-        {activeNav === "map" && <StationList />}
-        {activeNav === "favorites" && <FavoritesPanel />}
-        {activeNav === "points" && (
-          <UnimplementedHint>포인트</UnimplementedHint>
-        )}
-        {activeNav === "car" && <CarPanel />}
-        {activeNav === "settings" && (
-          <UnimplementedHint>설정</UnimplementedHint>
-        )}
-      </div>
+      {/* Discord-like channel panel — desktop (non-compact) only; not md: width */}
+      {!isCompact ? (
+        <div
+          className={[
+            "relative z-10 h-full shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200",
+            listPanelOpen ? "w-[300px]" : "w-0 overflow-hidden border-r-0",
+          ].join(" ")}
+        >
+          {activeNav === "map" && <StationList />}
+          {activeNav === "favorites" && <FavoritesPanel />}
+          {activeNav === "points" && <PointsPanel />}
+          {activeNav === "car" && <CarPanel />}
+          {activeNav === "settings" && (
+            <MyPagePanel onSelectNav={selectNav} />
+          )}
+        </div>
+      ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <main
@@ -249,25 +254,37 @@ export function AppShell() {
           <TopBar apiOnline={apiOnline} />
           <MapView />
 
-          {/* 이 지역 검색 칩 — 모바일은 검색○(top 4.75rem) 아래로. 검색 UI 열리면 숨김 */}
+          {/* 지도 상단 칩 스택: 도착지「이 주변 충전소」+「주변 탐색하기」 */}
           {!searchUiOpen ? (
-            <div className="pointer-events-none absolute inset-x-0 top-[9rem] z-[40] flex justify-center px-3 md:top-[6.5rem]">
+            <div
+              className={[
+                "pointer-events-none absolute inset-x-0 z-[40] flex flex-col items-center gap-2 px-3",
+                isCompact ? "top-[9rem]" : "top-[6.5rem]",
+              ].join(" ")}
+            >
+              <DestinationNearbyChip />
               <SearchThisAreaButton />
             </div>
           ) : null}
 
-          {/* md+: toggle station list side panel */}
-          <button
-            type="button"
-            onClick={() => setListPanelOpen((v) => !v)}
-            className="absolute left-3 top-1/2 z-[45] hidden -translate-y-1/2 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)] touch-manipulation md:block"
-            aria-label={listPanelOpen ? "목록 접기" : "목록 펼치기"}
-            aria-expanded={listPanelOpen}
-          >
-            {listPanelOpen ? "‹" : "›"}
-          </button>
+          {!isCompact ? (
+            <button
+              type="button"
+              onClick={() => setListPanelOpen((v) => !v)}
+              className="absolute left-3 top-1/2 z-[45] -translate-y-1/2 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-2.5 py-2 text-[12px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)] touch-manipulation"
+              aria-label={listPanelOpen ? "목록 접기" : "목록 펼치기"}
+              aria-expanded={listPanelOpen}
+            >
+              {listPanelOpen ? "‹" : "›"}
+            </button>
+          ) : null}
 
-          <MobileStationSheet activeNav={activeNav} />
+          {isCompact ? (
+            <MobileStationSheet
+              activeNav={activeNav}
+              onSelectNav={selectNav}
+            />
+          ) : null}
         </main>
 
         {isCompact && (

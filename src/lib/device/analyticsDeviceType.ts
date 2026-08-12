@@ -2,7 +2,8 @@ export type DeviceType = "mobile" | "tablet" | "desktop";
 
 /**
  * Service / analytics device label — **not** for map chrome / IconRail.
- * Layout compact mode: {@link useCompactLayout} (touch-primary or max-width 767px).
+ * Layout compact mode: {@link useCompactLayout}
+ * (min-width 900 → desktop; else touch-primary or max-width 767 → compact).
  *
  * Client-only meaningful; SSR returns `"desktop"`.
  */

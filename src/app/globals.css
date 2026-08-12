@@ -98,6 +98,15 @@ input {
   font: inherit;
 }
 
+/*
+ * type="search" shows a native clear (✕) in WebKit/Blink.
+ * We use a custom clear button (MapSearchBar / AddressSearchModal) — hide the default.
+ */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;

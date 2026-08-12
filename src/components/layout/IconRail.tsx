@@ -87,17 +87,20 @@ export const MAIN_NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: "settings",
-    label: "설정",
+    label: "마이페이지",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
-          d="M5 8.5h14M5 15.5h14"
+          d="M12 12.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+          stroke="currentColor"
+          strokeWidth="1.85"
+        />
+        <path
+          d="M5.5 19.2c1.4-2.4 3.7-3.7 6.5-3.7s5.1 1.3 6.5 3.7"
           stroke="currentColor"
           strokeWidth="1.85"
           strokeLinecap="round"
         />
-        <circle cx="9" cy="8.5" r="2.15" fill="currentColor" />
-        <circle cx="15" cy="15.5" r="2.15" fill="currentColor" />
       </svg>
     ),
   },

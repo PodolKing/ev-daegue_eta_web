@@ -13,6 +13,9 @@ export type RouteDestination = {
   lng: number;
   /** Set when started from a station detail card. */
   stationId?: string | null;
+  middleBizName?: string | null;
+  lowerBizName?: string | null;
+  parkFlag?: boolean | null;
 };
 
 type RouteStatus = "idle" | "preview" | "loading" | "ready" | "error";

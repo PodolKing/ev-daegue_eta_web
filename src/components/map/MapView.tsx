@@ -30,6 +30,7 @@ import { ensureTmapSdk, isTmapSdkReady } from "@/lib/tmap/loadSdk";
 import StationMarkers from "@/components/map/StationMarkers";
 import { CarPortFilterFab } from "@/components/map/CarPortFilterFab";
 import { SlowChargeFilterFab } from "@/components/map/SlowChargeFilterFab";
+import { useCompactLayout } from "@/lib/device/useCompactLayout";
 
 declare global {
   interface Window {
@@ -92,6 +93,8 @@ export function MapView() {
   const [mapError, setMapError] = useState<string | null>(null);
   /** 자유주행 ON 직후만 — 검색바와 상시 겹치지 않게 자동 숨김 */
   const [showExploreHint, setShowExploreHint] = useState(false);
+  /** FAB/카드 위치 — md: width가 아니라 compact(터치 포함 가로) 기준 */
+  const isCompact = useCompactLayout();
 
   const center = useMapStore((s) => s.center);
   const setCenter = useMapStore((s) => s.setCenter);
@@ -684,9 +687,9 @@ export function MapView() {
   const handleMoveToMyLocation = () => {
     if (!FEATURES.moveToMyLocation) return;
 
-    // 주변 탐색(map) 모드 OFF → 현위치 조회 복귀
+    // 도착지·map 주변 조회 앵커 OFF → 현위치 기준 목록/마커 복귀
     const anchor = useMapStore.getState().stationsAnchor;
-    if (anchor?.source === "map") {
+    if (anchor?.source === "map" || anchor?.source === "destination") {
       useMapStore.getState().setStationsAnchor(null);
     }
 
@@ -749,7 +752,10 @@ export function MapView() {
       <div className="pointer-events-none absolute inset-0 z-10">
         {mapError ? (
           <div
-            className="pointer-events-auto absolute inset-x-3 top-[4.75rem] z-20 max-w-[min(100%,28rem)] rounded-[var(--radius-lg)] border border-[var(--border)] bg-white/95 px-3 py-2 text-[12px] text-[var(--danger)] shadow-[var(--shadow-sm)] md:left-4 md:right-auto"
+            className={[
+              "pointer-events-auto absolute top-[4.75rem] z-20 max-w-[min(100%,28rem)] rounded-[var(--radius-lg)] border border-[var(--border)] bg-white/95 px-3 py-2 text-[12px] text-[var(--danger)] shadow-[var(--shadow-sm)]",
+              isCompact ? "inset-x-3" : "left-4 right-auto",
+            ].join(" ")}
             role="alert"
           >
             {mapError}
@@ -802,7 +808,10 @@ export function MapView() {
             Hidden while search UI is open — sheet-offset FABs collide with keyboard/search. */}
         <div
           className={[
-            "pointer-events-auto absolute bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)] left-3 z-[1] flex flex-col-reverse items-start gap-2 md:bottom-4 md:left-4",
+            "pointer-events-auto absolute z-[1] flex flex-col-reverse items-start gap-2",
+            isCompact
+              ? "bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)] left-3"
+              : "bottom-4 left-4",
             searchUiOpen ? "hidden" : "",
           ].join(" ")}
           aria-hidden={searchUiOpen || undefined}
@@ -944,21 +953,12 @@ export function MapView() {
         </div>
 
         <div
-          className="
-            pointer-events-auto
-            absolute
-            bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)]
-            right-3
-            z-[1]
-            flex
-            w-[min(calc(100%-8.5rem),380px)]
-            flex-col
-            items-stretch
-            gap-2
-            md:bottom-4
-            md:right-4
-            md:w-[min(calc(100%-1.5rem),380px)]
-          "
+          className={[
+            "pointer-events-auto absolute z-[1] flex flex-col items-stretch gap-2",
+            isCompact
+              ? "bottom-[calc(var(--map-sheet-offset,42dvh)+0.75rem)] right-3 w-[min(calc(100%-8.5rem),380px)]"
+              : "bottom-4 right-4 w-[min(calc(100%-1.5rem),380px)]",
+          ].join(" ")}
         >
           <RouteLiveRefresh />
           <RoutePolyline />

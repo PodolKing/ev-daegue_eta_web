@@ -316,6 +316,9 @@ export function MapSearchBar({ onPlaceSelect }: MapSearchBarProps) {
       address: place.address,
       lat: place.lat,
       lng: place.lng,
+      middleBizName: place.middleBizName ?? null,
+      lowerBizName: place.lowerBizName ?? null,
+      parkFlag: place.parkFlag ?? null,
     });
     setCenter({ lat: place.lat, lng: place.lng });
     setZoom(PLACE_SEARCH_ZOOM);
