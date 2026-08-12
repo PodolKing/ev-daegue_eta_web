@@ -15,8 +15,8 @@ const _iconUrlCache = new Map<string, string>();
 
 function scoreFill(score: number | null | undefined): string {
   if (score == null) return "#8b929e";
-  if (score >= 80) return "#1f9d63";
-  if (score >= 65) return "#2f6fed";
+  if (score >= 80) return "#2f6fed";
+  if (score >= 65) return "#1f9d63";
   if (score >= 50) return "#c47f17";
   return "#8b929e";
 }

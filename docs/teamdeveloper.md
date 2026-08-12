@@ -2441,3 +2441,151 @@ unCategorySearch: center + radiusKm, 성공 무메시지, 실패 console.error.
 
 ### 다음
 - 실기기: 카테고리 마커 탭 시 PlaceSummaryBar에 칩 라벨 표시 확인.
+
+## 2026-08-12 — 충전소 마커 숫자 콜아웃(팁 앵커)
+
+### 한 일
+- \lib/tmap/stationCalloutMarker.ts\: 원형 canvas 마커 → 둥근 사각 + 아래 팁 SVG 콜아웃. 가용 숫자 강조, \/총\ 유지. 앵커=팁 끝.
+- \StationMarkers\만 교체. 카테고리 핀·현위치·도착·RecommendMarkers 원형 유지.
+
+### 결정
+- 총대수 표기 유지(피드백은 가독성). 겹침은 완전 해소가 아니라 위치·숫자 가시성 완화 목적.
+- 되돌리기 쉬운 시안 — 아이콘 생성만 분리.
+
+### 다음
+- 실기기에서 \8/12\ 가독·선택 스트로크·밀집 구간 체감 확인. 마음에 안 들면 원형으로 롤백.
+
+## 2026-08-12 — 충전소 마커 겹침 cascade 시안 (아래 밀기)
+
+### 한 일
+- \lib/map/stationMarkerCascade.ts\: 화면상 근접 충전소를 그룹으로 묶어 슬롯마다 남쪽(아래)으로 표시 좌표만 오프셋. 탭 hit는 실제 lat/lng 유지.
+- \StationMarkers\: 줌·선택 변경 시 cascade 재적용. 선택 충전소는 그룹 내 slot 0(원래 자리). zIndex 미의존.
+
+### 결정
+- SDK/MapView/RadiusControl 미변경. 테스트 시안 — 체감 안 좋으면 cascade만 제거.
+
+### 다음
+- 실기기 밀집 구간·줌인아웃·선택 시 자리 복귀 확인.
+
+## 2026-08-12 — 겹침 시안: 위치 cascade → 팁 상하 플립
+
+### 한 일
+- 의도 정정: 좌표를 아래로 밀지 않고, 콜아웃 화살(팁)을 위/아래로 뒤집어 몸통을 양쪽으로 나눔.
+- \stationCalloutMarker\: tipDirection down|up. 겹친 페어는 하나 위·하나 아래. 좌표는 실제 lat/lng 유지.
+
+### 결정
+- zIndex/위치 오프셋 시안은 의도 아님. 2개 겹침에 유효, 3개+는 같은 방향끼리 다시 겹칠 수 있음.
+
+### 다음
+- 실기기에서 페어 겹침 구간 확인.
+
+## 2026-08-12 — 겹침: 아래층(낮은 z)만 팁 플립
+
+### 한 일
+- \calloutStackLayout\: 겹침 그룹에서 위층(선택 우선)=tip↓ + z 70/80, 가려진 쪽=tip↑ + z 50↓.
+- StationMarkers에서 setIcon과 함께 setZIndex 적용.
+
+### 결정
+- 클릭/가독이 막히는 아래층이 뒤집히도록. 좌표는 실제 lat/lng 유지.
+
+### 다음
+- 실기기 페어 겹침에서 아래 마커 탭·숫자 확인.
+
+## 2026-08-12 — 겹침: 팁 플립 폐기 → 표시좌표 cascade
+
+### 한 일
+- 팁 상하 뒤집기 제거(콜아웃은 항상 tip↓). 목표를 「안 겹침」으로 정정.
+- \cascadeMarkerLayout\: 근접 그룹에서 선택/위층은 제자리, 나머지는 화면 ~40px만큼 남쪽으로 표시만 이동. 탭 hit는 실제 lat/lng.
+
+### 결정
+- 뒤집으면 몸통이 반대로 붙으며 오히려 겹쳐 보임. declutter는 위치 오프셋.
+
+### 다음
+- 실기기 밀집 구간에서 세로로 벌어지는지·선택 시 제자리 복귀 확인.
+
+## 2026-08-12 — cascade: 선택 시 자리 고정
+
+### 한 일
+- cascade 슬롯은 stationId 고정 정렬. 선택은 icon/zIndex만(자리 재배치 없음).
+- 위치 sync는 list·줌만. 클릭으로 마커가 우르르 움직이지 않게.
+
+### 결정
+- 목표=그려질 때 안 겹침. 클릭 이동은 부작용이라 제거.
+
+### 다음
+- 실기기: 최초 표시에서 세로 분리·탭 시 자리 유지 확인.
+
+## 2026-08-12 — 충전 결제·포인트 정리 문서
+
+### 한 일
+- 워크스페이스 루트에 `payment.md` 신설 (기존 payment 전용 문서 없음).
+- 컨셉(포인트 대행·회원가 기준 데모), 기존 지갑 3테이블, 요금표, 예정 `usage_orders`/`partners`, kWh UX, 실연동 방향을 표로 정리.
+
+### 결정
+- 요금표 참고와 포인트 대행 레이어 분리. 가짜 제휴로 자격 흉내 내지 않음.
+- 토이 대행 단가 = 요금표 회원가 × 사용자 kWh(칩+수동). 실세션·상용 정산 제외.
+
+### 다음
+- 요금 표시·지갑 API·usage_orders 는 각각 BE 승인 후 구현.
+
+## 2026-08-12 — payment.md 대표가·매칭·가용 기 보강
+
+### 한 일
+- `payment.md`에 단가 매칭(busiId+output), DetailCard 비회원 대표가, 회사 vs 충전소 대표가, 가용 chargers(status=2)·FE만, 포트별 가격 비표시를 반영.
+
+### 결정
+- 충전소 대표가 = 가용 max output 밴드 비회원가. 회사 목록 = default_rate 또는 min~max (완속/최저가 단독 ❌).
+
+### 다음
+- 요금 API·DetailCard 표시는 BE 승인 후.
+
+## 2026-08-12 — payment.md 기존 3테이블 검토 + 신규 DDL 부록
+
+### 한 일
+- `payment.md` §2.0: `point_wallets` / `point_transactions` / `payments`는 usage_orders·요금 대행을 위해 **ALTER 불필요**로 확정 (`ref_type=usage_order` 자리 기존 확보).
+- §4.1 구현 규칙 반영: confirm 3중 원자성·잔액부족=롤백(failed 없음)·kWh CHECK·points_spent 단일 함수·idempotency=confirm 전용.
+- §10 DDL 부록: `ev_operator_tariffs`(CSV 기준), `usage_orders`, `partners`(1차 주석·미적용).
+
+### 결정
+- 기존 지갑 3테이블 스키마 수정 없음. 제휴 컬럼/affiliations 추가 없음. `ev_charger_status` 데모 변조 금지.
+- 신규 생성 순서: 요금표 → (지갑 API) → usage_orders. partners는 제휴 확정 전 생략.
+
+### 다음
+- DB 승인 후 §10 DDL 적용 + CSV import. usage_orders API는 BE 승인 후.
+
+## 2026-08-12 — payment DDL MariaDB + PostgreSQL 이중본
+
+### 한 일
+- `docs/data/payment_ddl_postgresql.sql`, `docs/data/payment_ddl_mariadb.sql` 신설 (요금표+usage_orders+partners주석).
+- `payment.md` §10에 두 방언 전문·차이표 반영. 기존 지갑 3테이블 ALTER 없음 유지.
+
+### 결정
+- Supabase(Postgres)가 주 타깃이어도 MariaDB 사본을 문서/파일로 유지 (이관·로컬 대비).
+
+### 다음
+- 실제 적용 DB 선택 후 해당 파일만 실행 + CSV import.
+
+## 2026-08-12 — 요금 폴백 센티널 __AVG__ CSV 반영
+
+### 한 일
+- `ev_operator_tariffs_import.csv`에 `busi_id=__AVG__` member/non_member 2행 추가 (밴드 median, 224행).
+- `build_ev_operator_tariffs_import.py`에 센티널 자동 주입. `payment.md` §3.1.1~3.1.2 조회·관리·DDL 주의 추가.
+- DDL 주석: FK 금지, `__DEFAULT__`(11자) 대신 `__AVG__`(7자).
+
+### 결정
+- 매칭 실패·busi_id null → `__AVG__` 폴백. UI는 추정·평균 기본가. 요금 정본은 CSV.
+
+### 다음
+- DB import 시 센티널 포함 재적재. 조회 로직에 폴백 순서 구현(BE 승인 후).
+
+## 2026-08-12 — cascade 파라미터 완화 (원 밖 과도 밀림)
+
+### 한 일
+- \stationMarkerCascade.ts\: COLLIDE_PX 96→56, MIN_COLLIDE_M 90→45, STEP_PX 44→28, MAX_SLOT 8→3.
+- 표시좌표만 남쪽 밀기 유지. 탭 hit는 실제 lat/lng 그대로.
+
+### 결정
+- 줌15 기준 충돌·슬롯 밀림이 반경 원 밖으로 과하게 나가 체감이 나쁨 → 내일 실기기 재테스트용 완화.
+
+### 다음
+- 밀집 구간에서 겹침·원 밖 이탈 체감 확인. 더 세면 추가 완화 또는 cascade 제거.
