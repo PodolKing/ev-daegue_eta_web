@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { placeCategoryLabel } from "@/lib/map/placeCategories";
 import type { TmapPlaceResult } from "@/lib/tmap/searchPlaces";
 import { placeCategoryMarkerIcon } from "@/lib/tmap/placeCategoryMarkers";
 import {
@@ -24,15 +25,26 @@ const TAP_MAX_MOVE_PX = 28;
 const PLACE_SEARCH_ZOOM = 18;
 
 function pickPlace(place: TmapPlaceResult) {
-  usePlaceCategoryStore.getState().setSelectedId(place.id);
+  const { categoryId, setSelectedId } = usePlaceCategoryStore.getState();
+  setSelectedId(place.id);
   useLocationStore.getState().setFollow(false);
   useMapStore.getState().setSelectedId(null);
   useMapStore.getState().setMobileSheetSnap("peek");
+
+  // around API는 middle/lowerBizName 미제공 → 활성 칩 라벨로 폴백
+  const lower = place.lowerBizName?.trim() || null;
+  const middle =
+    place.middleBizName?.trim() ||
+    (!lower ? placeCategoryLabel(categoryId) : null);
+
   useRouteStore.getState().setDestination({
     name: place.name,
     address: place.address,
     lat: place.lat,
     lng: place.lng,
+    middleBizName: middle,
+    lowerBizName: lower,
+    parkFlag: place.parkFlag ?? null,
   });
   useMapStore.getState().setCenter({ lat: place.lat, lng: place.lng });
   useMapStore.getState().setZoom(PLACE_SEARCH_ZOOM);

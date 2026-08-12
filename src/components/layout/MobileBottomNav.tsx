@@ -12,7 +12,7 @@ export function MobileBottomNav({
 }) {
   return (
     <nav
-      className="flex shrink-0 items-stretch border-t border-[var(--border)] bg-[var(--surface)] pb-[env(safe-area-inset-bottom,0px)] md:hidden"
+      className="flex shrink-0 items-stretch border-t border-[var(--border)] bg-[var(--surface)] pb-[env(safe-area-inset-bottom,0px)]"
       aria-label="주 메뉴"
     >
       {MAIN_NAV.map((item) => {

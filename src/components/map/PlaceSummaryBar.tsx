@@ -7,6 +7,7 @@ import {
   UnimplementedBadge,
   UnimplementedHint,
 } from "@/components/ui/Unimplemented";
+import { queryNearbyStationsAt } from "@/lib/map/queryNearbyStations";
 import { useLocationStore } from "@/stores/locationStore";
 import { useMapStore } from "@/stores/mapStore";
 import { usePlaceCategoryStore } from "@/stores/placeCategoryStore";
@@ -38,8 +39,6 @@ export function PlaceSummaryBar() {
   const selectedId = useMapStore((s) => s.selectedId);
   const setSelectedId = useMapStore((s) => s.setSelectedId);
   const setCenter = useMapStore((s) => s.setCenter);
-  const setStationsAnchor = useMapStore((s) => s.setStationsAnchor);
-  const setMobileSheetSnap = useMapStore((s) => s.setMobileSheetSnap);
   const map = useMapStore((s) => s.map);
   const markerRef = useRef<any>(null);
   const [minimized, setMinimized] = useState(false);
@@ -103,19 +102,14 @@ export function PlaceSummaryBar() {
   const routeExpanded = status === "loading" || status === "ready";
   /** 검색 직후 preview만 — 길찾기 시작 후에는 숨김. */
   const showNearbyStations = status === "preview";
+  const bizLabel =
+    destination.lowerBizName?.trim() ||
+    destination.middleBizName?.trim() ||
+    null;
+  const showParking = destination.parkFlag === true;
 
   const queryNearbyStations = () => {
-    useLocationStore.getState().setFollow(false);
-    setStationsAnchor({
-      lat: destination.lat,
-      lng: destination.lng,
-      source: "destination",
-    });
-    setCenter({ lat: destination.lat, lng: destination.lng });
-    setMobileSheetSnap("half");
-    if (map && window.Tmapv2?.LatLng && typeof map.setCenter === "function") {
-      map.setCenter(new window.Tmapv2.LatLng(destination.lat, destination.lng));
-    }
+    queryNearbyStationsAt(destination.lat, destination.lng);
   };
 
   /** AI 점수 목록·추천 마커만 — 주변 stations 조회 없음. 길찾기 전 선택용. */
@@ -135,7 +129,7 @@ export function PlaceSummaryBar() {
   // Thin strip — map stays usable; route/destination kept.
   if (minimized) {
     return (
-      <div className="pointer-events-auto w-full max-w-[min(100%,280px)] animate-fade-up">
+      <div className="pointer-events-auto w-full max-w-[min(100%,320px)] animate-fade-up">
         <button
           type="button"
           onClick={() => setMinimized(false)}
@@ -145,6 +139,7 @@ export function PlaceSummaryBar() {
           <span
             className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold text-[var(--text)]"
             style={{ fontFamily: "var(--font-display), sans-serif" }}
+            title={destination.name}
           >
             {destination.name}
           </span>
@@ -164,7 +159,7 @@ export function PlaceSummaryBar() {
   }
 
   return (
-    <div className="pointer-events-auto w-full max-w-[min(100%,280px)] animate-fade-up">
+    <div className="pointer-events-auto w-full max-w-[min(100%,320px)] animate-fade-up">
       <div
         className={[
           "rounded-[var(--radius-lg)] border border-[var(--border)] bg-white/95 shadow-[var(--shadow-md)] backdrop-blur-md",
@@ -180,18 +175,19 @@ export function PlaceSummaryBar() {
 
           <div
             className={[
-              "flex min-w-0 items-center gap-2",
+              "flex min-w-0 items-start gap-2",
               routeExpanded ? "mt-1" : "",
             ].join(" ")}
           >
             <p
               className={[
-                "min-w-0 flex-1 truncate font-semibold text-[var(--text)]",
+                "min-w-0 flex-1 line-clamp-2 break-keep font-semibold text-[var(--text)]",
                 routeExpanded
                   ? "text-[16px] font-bold tracking-tight"
                   : "text-[14px]",
               ].join(" ")}
               style={{ fontFamily: "var(--font-display), sans-serif" }}
+              title={destination.name}
             >
               {destination.name}
             </p>
@@ -214,6 +210,16 @@ export function PlaceSummaryBar() {
               접기
             </button>
           </div>
+          {bizLabel || showParking ? (
+            <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--text-muted)]">
+              {bizLabel ? <span className="truncate">{bizLabel}</span> : null}
+              {showParking ? (
+                <span className="shrink-0 font-medium text-[var(--text-secondary)]">
+                  주차 가능
+                </span>
+              ) : null}
+            </p>
+          ) : null}
           <p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
             {destination.address || "주소 정보 없음"}
           </p>

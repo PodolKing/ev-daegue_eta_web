@@ -4,8 +4,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { CarPanel } from "@/components/car/CarPanel";
 import { FavoritesPanel } from "@/components/favorites/FavoritesPanel";
 import type { NavId } from "@/components/layout/IconRail";
+import { MyPagePanel } from "@/components/mypage/MyPagePanel";
+import { PointsPanel } from "@/components/points/PointsPanel";
 import { StationList } from "@/components/map/StationList";
-import { UnimplementedHint } from "@/components/ui/Unimplemented";
 import {
   MOBILE_SHEET_OFFSET,
   resolveSheetSnapAfterDrag,
@@ -35,12 +36,15 @@ function snapTranslateYPx(snap: MobileSheetSnap, vh: number): number {
 /**
  * Transform-based bottom sheet: finger follows while dragging,
  * ease on release. Resting snap uses dvh (no window on first paint).
- * md 미만: 데스크톱 사이드 패널 대신 이 시트에 네비(목록/내 차량 등) 표시.
+ * Compact layout only (AppShell mounts when useCompactLayout). Not gated by md:.
+ * Desktop uses the side panel instead.
  */
 export function MobileStationSheet({
   activeNav = "map",
+  onSelectNav,
 }: {
   activeNav?: NavId;
+  onSelectNav?: (id: NavId) => void;
 }) {
   const mobileSheetSnap = useMapStore((s) => s.mobileSheetSnap);
   const setMobileSheetSnap = useMapStore((s) => s.setMobileSheetSnap);
@@ -187,7 +191,7 @@ export function MobileStationSheet({
         : activeNav === "points"
           ? "포인트"
           : activeNav === "settings"
-            ? "설정"
+            ? "마이페이지"
             : "목록";
   const sheetLabel =
     mobileSheetSnap === "peek" ? panelTitle : "접기";
@@ -204,7 +208,7 @@ export function MobileStationSheet({
   return (
     <div
       ref={rootRef}
-      className="pointer-events-none absolute inset-x-0 bottom-0 z-30 overflow-hidden md:hidden"
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-30 overflow-hidden"
       style={{ height: "90dvh" }}
       data-sheet-snap={mobileSheetSnap}
       data-sheet-fallback={MOBILE_SHEET_OFFSET[mobileSheetSnap]}
@@ -240,11 +244,9 @@ export function MobileStationSheet({
           {activeNav === "map" && <StationList compactHeader />}
           {activeNav === "car" && <CarPanel />}
           {activeNav === "favorites" && <FavoritesPanel />}
-          {activeNav === "points" && (
-            <UnimplementedHint>포인트</UnimplementedHint>
-          )}
+          {activeNav === "points" && <PointsPanel />}
           {activeNav === "settings" && (
-            <UnimplementedHint>설정</UnimplementedHint>
+            <MyPagePanel onSelectNav={onSelectNav} />
           )}
         </div>
       </div>

@@ -6,6 +6,9 @@ export type TmapPlaceResult = {
   address: string;
   lat: number;
   lng: number;
+  middleBizName?: string | null;
+  lowerBizName?: string | null;
+  parkFlag?: boolean | null;
 };
 
 /**
