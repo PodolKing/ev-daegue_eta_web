@@ -116,24 +116,12 @@ export function MyPagePanel({ onSelectNav }: MyPagePanelProps) {
           />
         </label>
 
-        <label className="block text-[12px] font-medium text-[var(--text-secondary)]">
-          회원 번호
-          <input
-            type="text"
-            name="userId"
-            readOnly
-            value={user?.id ?? ""}
-            placeholder="로그인 후 표시"
-            className={`${fieldClass} cursor-default bg-[var(--surface-muted)]`}
-          />
-        </label>
-
         <div className="block">
           <span className="text-[12px] font-medium text-[var(--text-secondary)]">
             주소
           </span>
           <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-            가입과 동일 · 주소 검색 모달 재사용
+            가입할 때와 같은 주소 검색을 사용합니다
           </p>
           <div className="mt-1.5 flex gap-2">
             <input
@@ -197,7 +185,7 @@ export function MyPagePanel({ onSelectNav }: MyPagePanelProps) {
       <div className="mt-4 border-t border-[var(--border)] pt-3 pb-2">
         <p className="text-[12px] font-semibold text-[var(--text)]">회원 삭제</p>
         <p className="mt-1 text-[11px] leading-snug text-[var(--text-muted)]">
-          탈퇴 시 즐겨찾기·차량 등 연동 데이터가 함께 정리됩니다. (기능 미연결)
+          탈퇴 시 즐겨찾기·차량 등 저장된 정보가 함께 정리됩니다.
         </p>
         <button
           type="button"

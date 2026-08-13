@@ -18,6 +18,7 @@ import { useCompactLayout } from "@/lib/device/useCompactLayout";
 import { FEATURES } from "@/lib/features";
 import { DAEGU_CENTER, useMapStore, MOBILE_SHEET_OFFSET } from "@/stores/mapStore";
 import { useLocationStore } from "@/stores/locationStore";
+import { useRecommendStore } from "@/stores/recommendStore";
 
 /** Min move from last stations fetch origin before refetch (watch ticks). */
 const STATIONS_REFETCH_MIN_M = 200;
@@ -56,6 +57,7 @@ export function AppShell() {
   const setLoading = useMapStore((s) => s.setLoading);
   const setError = useMapStore((s) => s.setError);
   const mobileSheetSnap = useMapStore((s) => s.mobileSheetSnap);
+  const recommendActive = useRecommendStore((s) => s.active);
 
   const coords = useLocationStore((s) => s.coords);
   const locateOnce = useLocationStore((s) => s.locateOnce);
@@ -210,6 +212,14 @@ export function AppShell() {
     const id = window.setTimeout(() => map.resize(), 220);
     return () => window.clearTimeout(id);
   }, [isCompact, listPanelOpen, mobileSheetSnap]);
+
+  // AI 추천 목록이 뜨면 일반 StationList 메뉴를 접어 두 목록이 겹치지 않게.
+  useEffect(() => {
+    if (!recommendActive) return;
+    setListPanelOpen(false);
+    setActiveNav("map");
+    useMapStore.getState().setMobileSheetSnap("peek");
+  }, [recommendActive]);
 
   return (
     <div

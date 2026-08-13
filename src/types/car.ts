@@ -8,28 +8,25 @@ export type FuelType = "EV" | "PHEV";
  * 유효 포트: `chargingPort ?? carModel.chargingPort`
  */
 export type Car = {
-  id: string;
-  userId: string;
-  carModelId: string | null;
-  nickname: string | null;
+  id: number;
+  carModelId: number | null;
+  carNumber: string | null;
   /** 오버라이드. null이면 car_models.charging_port */
   chargingPort: ChargingPort | null;
   isPrimary: boolean;
   customModelName: string | null;
   createdAt: string;
   updatedAt: string;
-  /** join 시 포함될 수 있음 */
+  /** GET/POST 응답의 `model`을 FE에서 carModel로 매핑 */
   carModel?: CarModel | null;
 };
 
 /** 카탈로그 — `car_models` */
 export type CarModel = {
-  id: string;
+  id: number;
   manufacturer: string;
   modelName: string;
   fuelType: FuelType;
   chargingPort: ChargingPort | null;
   batteryCapacity: number | null;
-  createdAt?: string;
-  updatedAt?: string;
 };

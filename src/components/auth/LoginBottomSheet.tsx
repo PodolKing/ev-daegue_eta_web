@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BodyPortal } from "@/components/auth/BodyPortal";
 import { buildLoginHref } from "@/lib/auth/returnUrl";
 
 type LoginBottomSheetProps = {
@@ -9,6 +10,8 @@ type LoginBottomSheetProps = {
   /** Encoded map return path, e.g. `/map?lat=...&lng=...` */
   returnUrl: string;
   message?: string;
+  /** null이면 부제 숨김 */
+  description?: string | null;
 };
 
 /**
@@ -20,14 +23,16 @@ export function LoginBottomSheet({
   onClose,
   returnUrl,
   message = "로그인이 필요합니다",
+  description = "즐겨찾기·포인트 등 회원 기능을 쓰려면 로그인해 주세요.",
 }: LoginBottomSheetProps) {
   if (!open) return null;
 
   const loginHref = buildLoginHref(returnUrl);
 
   return (
+    <BodyPortal>
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 sm:items-center"
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/30 p-3 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="login-sheet-title"
@@ -47,9 +52,11 @@ export function LoginBottomSheet({
         >
           {message}
         </h2>
-        <p className="mt-1 text-[13px] text-[var(--text-secondary)]">
-          즐겨찾기·포인트 등 회원 기능을 쓰려면 로그인해 주세요.
-        </p>
+        {description ? (
+          <p className="mt-1 text-[13px] text-[var(--text-secondary)]">
+            {description}
+          </p>
+        ) : null}
 
         <Link
           href={loginHref}
@@ -80,5 +87,6 @@ export function LoginBottomSheet({
         </button>
       </div>
     </div>
+    </BodyPortal>
   );
 }

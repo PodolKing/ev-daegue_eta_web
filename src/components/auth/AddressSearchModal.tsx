@@ -13,6 +13,7 @@ import {
   type TmapPlaceResult,
 } from "@/lib/tmap/searchPlaces";
 import { FEATURES } from "@/lib/features";
+import { BodyPortal } from "@/components/auth/BodyPortal";
 
 type AddressSearchModalProps = {
   open: boolean;
@@ -131,8 +132,9 @@ export default function AddressSearchModal({
   };
 
   return (
+    <BodyPortal>
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/35 p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="address-search-title"
@@ -260,5 +262,6 @@ export default function AddressSearchModal({
         </p>
       </div>
     </div>
+    </BodyPortal>
   );
 }

@@ -1,3 +1,3 @@
 "use client";
 
-import { useCarStore } from "@/stores/carStore";
+/** 차량 등록 UI는 CarPanel. */

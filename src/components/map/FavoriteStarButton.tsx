@@ -1,7 +1,11 @@
 "use client";
 
-import type { MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
+import { LoginBottomSheet } from "@/components/auth/LoginBottomSheet";
+import { buildMapReturnUrl } from "@/lib/auth/returnUrl";
+import { useAuthStore } from "@/stores/authStore";
 import { useFavoriteStore } from "@/stores/favoriteStore";
+import { useMapStore } from "@/stores/mapStore";
 
 type FavoriteStarButtonProps = {
   stationId: string;
@@ -29,50 +33,72 @@ export function FavoriteStarButton({
   variant = "detail",
   className = "",
 }: FavoriteStarButtonProps) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const active = useFavoriteStore((s) => Boolean(s.stationIds[stationId]));
   const toggleFavorite = useFavoriteStore((s) => s.toggleFavorite);
+  const center = useMapStore((s) => s.center);
+  const zoom = useMapStore((s) => s.zoom);
+  const radiusKm = useMapStore((s) => s.radiusKm);
+  const [loginOpen, setLoginOpen] = useState(false);
 
   const onClick = (e: MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    toggleFavorite(stationId);
+    if (!isAuthenticated) {
+      setLoginOpen(true);
+      return;
+    }
+    void toggleFavorite(stationId);
   };
 
-  if (variant === "list") {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={active ? "즐겨찾기 해제" : "즐겨찾기 추가"}
-        aria-pressed={active}
-        className={[
+  const returnUrl = buildMapReturnUrl({
+    lat: center.lat,
+    lng: center.lng,
+    zoom,
+    radius: radiusKm,
+  });
+
+  const buttonClass =
+    variant === "list"
+      ? [
           "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full touch-manipulation transition-colors",
           active
             ? "text-[var(--warning)] hover:bg-[var(--warning-soft)]"
             : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--warning)]",
           className,
-        ].join(" ")}
-      >
-        <StarIcon filled={active} />
-      </button>
-    );
-  }
+        ].join(" ")
+      : [
+          "flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-muted)] touch-manipulation transition-colors",
+          active
+            ? "text-[var(--warning)] hover:bg-[var(--warning-soft)]"
+            : "text-[var(--text-muted)] hover:text-[var(--warning)]",
+          className,
+        ].join(" ");
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={active ? "즐겨찾기 해제" : "즐겨찾기 추가"}
-      aria-pressed={active}
-      className={[
-        "flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-muted)] touch-manipulation transition-colors",
-        active
-          ? "text-[var(--warning)] hover:bg-[var(--warning-soft)]"
-          : "text-[var(--text-muted)] hover:text-[var(--warning)]",
-        className,
-      ].join(" ")}
-    >
-      <StarIcon filled={active} />
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={
+          !isAuthenticated
+            ? "즐겨찾기 (로그인 필요)"
+            : active
+              ? "즐겨찾기 해제"
+              : "즐겨찾기 추가"
+        }
+        aria-pressed={isAuthenticated ? active : false}
+        className={buttonClass}
+      >
+        <StarIcon filled={isAuthenticated && active} />
+      </button>
+      <LoginBottomSheet
+        open={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        returnUrl={returnUrl}
+        message="즐겨찾기 기능은 로그인 시 제공됩니다"
+        description={null}
+      />
+    </>
   );
 }
