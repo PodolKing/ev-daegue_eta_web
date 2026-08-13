@@ -11,24 +11,44 @@ export type TmapPlaceResult = {
   parkFlag?: boolean | null;
 };
 
+function isDaeguPlace(place: TmapPlaceResult): boolean {
+  const hay = `${place.address ?? ""} ${place.name ?? ""}`;
+  return hay.includes("대구");
+}
+
+/** 대구 주소·상호를 위로. 타 지역은 제거하지 않고 상대 순서 유지. */
+function boostDaeguPlaces(items: TmapPlaceResult[]): TmapPlaceResult[] {
+  const daegu: TmapPlaceResult[] = [];
+  const other: TmapPlaceResult[] = [];
+  for (const item of items) {
+    if (isDaeguPlace(item)) daegu.push(item);
+    else other.push(item);
+  }
+  return daegu.concat(other);
+}
+
 /**
  * 장소/주소 검색 — BE `GET /api/v1/places/search` (TMAP POI 프록시).
+ * center가 있으면 lat/lng만 전달(반경 제한 없음). 결과는 대구 우선 정렬.
  */
 export async function searchTmapPlaces(
   query: string,
-  _center?: { lat: number; lng: number },
+  center?: { lat: number; lng: number },
 ): Promise<TmapPlaceResult[]> {
   const q = query.trim();
   if (!q) return [];
 
-  void _center;
-
   const params = new URLSearchParams({ keyword: q });
+  if (center) {
+    params.set("lat", String(center.lat));
+    params.set("lng", String(center.lng));
+  }
   const res = await fetch(`${getApiBase()}/api/v1/places/search?${params}`);
   if (!res.ok) {
     throw new Error(`places search ${res.status}`);
   }
-  return res.json() as Promise<TmapPlaceResult[]>;
+  const items = (await res.json()) as TmapPlaceResult[];
+  return boostDaeguPlaces(items);
 }
 
 /**

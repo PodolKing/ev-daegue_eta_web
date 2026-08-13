@@ -2589,3 +2589,133 @@ unCategorySearch: center + radiusKm, 성공 무메시지, 실패 console.error.
 
 ### 다음
 - 밀집 구간에서 겹침·원 밖 이탈 체감 확인. 더 세면 추가 완화 또는 cascade 제거.
+
+## 2026-08-13 — 회원 메뉴 UI 게이트·카피 정리
+
+### 한 일
+- 즐겨찾기·내 차량·포인트 패널: 비로그인 시 상단 배너 + 메뉴 열람 유지. 등록/충전 버튼은 비활성.
+- 목록·상세 ★: 비로그인이면 별 미채움, 「즐겨찾기 기능은 로그인 시 제공됩니다」 시트.
+- 포인트 mockup에서 balance·테이블명 등 DB 용어 제거. 마이페이지 회원번호 필드 삭제.
+- 즐겨찾기·차량 폼의 DB 컬럼 안내 문구 제거.
+
+### 결정
+- 패널 진입은 막지 않고 위 안내만. 저장 순간에 창을 띄우지 않음(버튼 비활성).
+- 지도/충전소 ★만 탭 시 로그인 시트.
+
+### 다음
+- favorites/cars API 연동. 로그인 후 배너 숨김·★ 토글 서버 반영 확인.
+
+## 2026-08-13 — AI 추천 후 일반 목록 메뉴 접기
+
+### 한 일
+- AppShell: recommendActive가 되면 데스크톱 목록 패널 닫기, 모바일 시트 peek, nav는 map.
+- AI 추천 목록과 StationList가 동시에 보이지 않게.
+
+### 결정
+- 추천 시작(패널 등장) 시점에 접음. 추천 종료 후 자동 재펼침은 없음.
+
+### 다음
+- 실기기에서 AI 추천 탭 → 일반 목록이 접히고 추천 목록만 남는지 확인.
+
+## 2026-08-13 — 즐겨찾기 가용대수 + 시트 모달 포탈
+
+### 한 일
+- GET /favorites/list에 availableCount 추가. ev_charger_status JOIN, stations와 동일(관측 없으면 null, 있으면 charger_status=2 대수). 반경과 무관.
+- 즐겨찾기 목록 행에 그 수를 표시.
+- LoginBottomSheet·AddressSearchModal을 document.body 포탈. 모바일 시트(transform) 안에서 열어도 회색 오버레이가 시트에 갇히지 않음.
+
+### 결정
+- 찜 가용은 mapStore 반경 합치기가 아니라 list API 필드. 대구 서비스 범위의 충전소면 카메라 밖이어도 숫자.
+- 모달 UI는 유지하고 마운트만 body. TMAP 잠금 파일 미수정.
+
+### 다음
+- 로그인 후 즐겨찾기 탭에서 반경 밖 찜도 가용 숫자가 보이는지 확인.
+- 모바일 시트에서 ★(비로그인)·마이페이지 주소 검색 시 닫기/로그인이 화면 안에 보이는지 확인.
+- 즐겨찾기 추가 탭 검색 연동.
+
+## 2026-08-13 — 즐겨찾기 ★ 등록 연동 (현황)
+
+### 한 일
+- 목록·상세 ★ → 로그인 게이트 → POST /api/v1/favorites/toggle → favoriteStore hydrate.
+- 즐겨찾기 목록 탭은 저장된 충전소 표시(availableCount 포함).
+- 「추가」탭 UI(검색창·선택·메모·제출)는 유지. 검색·제출은 아직 미연결.
+
+### 결정
+- 지도에서 ★로 찜하는 1차 등록은 완료로 본다.
+- 지도 장소검색(MapSearchBar / TMAP POI)과 즐겨찾기 추가 탭 검색은 별개. 찜은 stationId가 필요해서 POI로 대체하지 않음.
+- 반경 목록(mapStore.stations) 클라이언트 필터만으로는 추가 탭 검색으로 쓰지 않음.
+
+### 다음
+- 즐겨찾기 추가 탭: 충전소 이름/주소 검색 → 선택 → 메모 → toggleFavorite.
+- 검색 API는 GET /api/v1/stations/search (q 2자+, limit, stat_id 집계). 기존 GET /stations(lat/lng/radius)는 유지. BE 작업 전 승인 필요.
+- MapSearchBar·TMAP 잠금 파일(loadSdk / MapView bootstrap / RadiusControl) 수정하지 않음.
+
+## 2026-08-13 — 충전소 키워드 검색 API
+
+### 한 일
+- GET /api/v1/stations/search 추가. q(2자+)·limit(기본 20/최대 30). stat_nm·addr·addr_detail contains, stat_id 집계.
+- 응답 요약만: stationId, name, address, lat, lng, availableCount. chargers[] 없음.
+- 기존 GET /stations(lat/lng/radius) 계약 유지. FE 미연결(추가 탭은 프론트에서 붙임).
+- stations_api.md (api/docs · web/docs)에 엔드포인트 문서 추가.
+
+### 결정
+- 반경 목록에 q를 섞지 않고 /search 분리. 전체 dump 금지.
+- 지도 장소검색(TMAP places)과 혼용하지 않음. 찜은 stationId.
+
+### 다음
+- FE 즐겨찾기 추가 탭: search → 선택 → 메모 → toggleFavorite.
+- OpenAPI /docs에서 /stations/search 확인. q=시청 등 로컬 조회.
+
+## 2026-08-13 — 즐겨찾기 추가 탭 검색 연결 + draft 유지
+
+### 한 일
+- FavoritesAddShell: searchStations 디바운스 → 선택 → memo → toggleFavorite. 성공 시 목록 탭.
+- 비로그인 추가 버튼 라벨「로그인 후 추가」+ 안내. 미선택 시「검색에서 충전소를 선택하세요」.
+- addDraft·addTab을 favoriteStore에 둠. 목록/추가 탭·다른 메뉴를 다녀와도 추가 성공 전까지 유지.
+- 검색「초기화」버튼: query·결과·선택 비움(메모는 유지). 추가 성공·로그아웃 시 draft 전체 비움.
+
+### 결정
+- 추가 성공 전 draft 유지. 지도 검색(MapSearchBar)과 분리. TMAP 잠금 파일 미수정.
+
+### 다음
+- 로그인 후 추가 탭에서 검색→선택→추가→목록·★ 확인. 탭/메뉴 이동 후 draft 유지·초기화 확인.
+
+## 2026-08-13 — 지도 장소검색 대구 우선(제거 없음)
+
+### 한 일
+- searchTmapPlaces: 지도 center가 있으면 lat/lng를 BE에 전달. radius는 안 보냄(타 지역 미절단).
+- 응답 10개를 재정렬: 주소·이름에 「대구」가 있으면 위, 없으면 아래. 그룹 안 TMAP 순서 유지.
+
+### 결정
+- 대구만 남기는 필터 아님. 개수 10 유지. MapView/loadSdk/RadiusControl 미수정.
+
+### 다음
+- 「시청」검색 시 대구 결과가 위에 오는지, 「강남」은 서울이 그대로 나오는지 확인.
+
+## 2026-08-13 — 내 차량 API 연동 (FE)
+
+### 한 일
+- CarPanel: GET /models 콤보, POST /createCar, 목록·대표·삭제. 로그인 시 폼, 비로그인은 임시 포트만.
+- 로그인 hydrate에 cars 포함. logout/clear 시 carStore clear.
+- 400 응답은 FastAPI detail 문자열을 alert에 사용.
+
+### 결정
+- 차량 내용 수정 PATCH는 1차 제외. 잘못 등록하면 삭제 후 재등록.
+- API model → FE carModel 매핑. 커스텀 기종은 포트 필수 UI.
+
+### 다음
+- 실기기: 로그인 → 기종 선택 → 저장 → 새로고침 후 목록 유지. 대표/삭제 확인.
+
+## 2026-08-13 — 충전 포트 SVG 시안
+
+### 한 일
+- 원본 포트 글리프 3장: `web/public/car/ports/{ccs,chademo,nacs}.svg` (공식 도면 아님, 핀 배치 단순화).
+- CarPanel 포트 선택·목록·임시 포트 버튼에 표시. CCS는 한국에서 익숙한 Combo 2 실루엣.
+- 차량 가오용 생성 사진 1장 시안: `web/public/car/ev-generic.png` (빈 목록에만, 교체 가능).
+
+### 결정
+- 포트는 AI 생성 대신 직접 SVG. 차 사진은 시안 — 외부 에셋으로 바꿔도 경로만 유지.
+
+### 다음
+- 내 차량에서 포트 3종 구분 확인. 차 사진 유지/교체 결정.
+

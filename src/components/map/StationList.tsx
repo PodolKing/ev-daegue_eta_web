@@ -12,8 +12,10 @@ import {
   parkingListTextClass,
 } from "@/lib/parking";
 import { FavoriteStarButton } from "@/components/map/FavoriteStarButton";
+import { ensureStationLoaded } from "@/stores/ensureStationLoaded";
 import { useMapStore } from "@/stores/mapStore";
 import { useCarStore, effectiveChargingPort } from "@/stores/carStore";
+import type { Station } from "@/types/station";
 
 function formatAvailable(count: number | null): { label: string; tone: string } {
   if (count === null) {
@@ -29,12 +31,17 @@ function formatAvailable(count: number | null): { label: string; tone: string } 
 }
 
 type StationListProps = {
-  /** Mobile sheet: one-line header to leave room for rows. */
   compactHeader?: boolean;
+  items?: Station[];
+  hideRadiusMeta?: boolean;
 };
 
-export function StationList({ compactHeader = false }: StationListProps) {
-  const stations = useMapStore((s) => s.stations);
+export function StationList({
+  compactHeader = false,
+  items,
+  hideRadiusMeta = false,
+}: StationListProps) {
+  const mapStations = useMapStore((s) => s.stations);
   const includeSlow = useMapStore((s) => s.includeSlow);
   const selectedId = useMapStore((s) => s.selectedId);
   const loading = useMapStore((s) => s.loading);
@@ -46,17 +53,22 @@ export function StationList({ compactHeader = false }: StationListProps) {
   const primaryCar = useCarStore((s) => s.primaryCar);
   const port = effectiveChargingPort(primaryCar);
 
+  const usingItems = items != null;
+  const source = usingItems ? items : mapStations;
+
   const visible = useMemo(
     () =>
-      filterStationsByCarPort(
-        filterStationsBySlowInclude(stations, includeSlow),
-        port,
-        filterByCarPort,
-      ),
-    [stations, includeSlow, port, filterByCarPort],
+      usingItems
+        ? source
+        : filterStationsByCarPort(
+            filterStationsBySlowInclude(source, includeSlow),
+            port,
+            filterByCarPort,
+          ),
+    [usingItems, source, includeSlow, port, filterByCarPort],
   );
 
-  const carPortFilterOn = filterByCarPort && port != null;
+  const carPortFilterOn = !usingItems && filterByCarPort && port != null;
   const meta = [
     `반경 ${radiusKm}km · 직선거리`,
     !includeSlow ? "완속 제외" : null,
@@ -65,9 +77,22 @@ export function StationList({ compactHeader = false }: StationListProps) {
     .filter(Boolean)
     .join(" · ");
 
+  const onRowClick = (s: Station) => {
+    if (!usingItems) {
+      selectStation(s.stationId);
+      return;
+    }
+    void (async () => {
+      if (s.lat && s.lng) {
+        await ensureStationLoaded(s.stationId, s.lat, s.lng);
+      }
+      useMapStore.getState().selectStation(s.stationId);
+    })();
+  };
+
   return (
     <section className="ev-scroll-panel flex h-full min-h-0 w-full flex-col bg-[var(--surface)]">
-      {compactHeader ? (
+      {hideRadiusMeta ? null : compactHeader ? (
         <div className="flex shrink-0 items-baseline justify-between gap-2 border-b border-[var(--border)] px-3 py-2">
           <h2
             className="truncate text-[14px] font-bold tracking-tight text-[var(--text)]"
@@ -90,7 +115,7 @@ export function StationList({ compactHeader = false }: StationListProps) {
       )}
 
       <div className="ev-scroll-panel min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
-        {loading && (
+        {!usingItems && loading && (
           <div className="space-y-2 p-2">
             {[0, 1, 2].map((i) => (
               <div
@@ -101,13 +126,13 @@ export function StationList({ compactHeader = false }: StationListProps) {
           </div>
         )}
 
-        {!loading && error && (
+        {!usingItems && !loading && error && (
           <div className="m-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--warning-soft)] px-3 py-3 text-[13px] text-[var(--warning)]">
             {error}
           </div>
         )}
 
-        {!loading && !error && visible.length === 0 && (
+        {!usingItems && !loading && !error && visible.length === 0 && (
           <div className="m-2 rounded-[var(--radius-md)] border border-dashed border-[var(--border-strong)] px-4 py-8 text-center">
             <p className="text-[14px] font-medium text-[var(--text)]">
               표시할 충전소가 없습니다
@@ -123,7 +148,7 @@ export function StationList({ compactHeader = false }: StationListProps) {
                     : ""}{" "}
                   반경을 넓히거나 전체 보기로 전환해 보세요.
                 </>
-              ) : stations.length > 0 && !includeSlow ? (
+              ) : mapStations.length > 0 && !includeSlow ? (
                 "완속만 있는 충전소입니다. 완속 필터를 켜 보세요."
               ) : (
                 "현재 대구지역 충전소만 불러옵니다"
@@ -143,7 +168,9 @@ export function StationList({ compactHeader = false }: StationListProps) {
 
         <ul className="space-y-0.5">
           {visible.map((s) => {
-            const count = availableCountForSlowFilter(s, includeSlow);
+            const count = usingItems
+              ? s.availableCount
+              : availableCountForSlowFilter(s, includeSlow);
             const avail = formatAvailable(count);
             const parkingLabel = parkingFreeShort(s.parkingFree);
             const parkingTone = parkingKind(s.parkingFree);
@@ -160,7 +187,7 @@ export function StationList({ compactHeader = false }: StationListProps) {
                 >
                   <button
                     type="button"
-                    onClick={() => selectStation(s.stationId)}
+                    onClick={() => onRowClick(s)}
                     className="flex min-w-0 flex-1 items-start gap-3 px-3 py-2.5 text-left touch-manipulation"
                   >
                     <span

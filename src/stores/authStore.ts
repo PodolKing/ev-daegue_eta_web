@@ -129,6 +129,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       pointsBalance: null,
       status: "idle",
     });
+    void import("@/stores/favoriteStore").then((m) => {
+      m.useFavoriteStore.getState().clear();
+    });
+    void import("@/stores/carStore").then((m) => {
+      m.useCarStore.getState().clear();
+    });
   },
   clear: () => {
     clearAccessToken();
@@ -137,6 +143,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       isAuthenticated: false,
       pointsBalance: null,
       status: "idle",
+    });
+    void import("@/stores/favoriteStore").then((m) => {
+      m.useFavoriteStore.getState().clear();
+    });
+    void import("@/stores/carStore").then((m) => {
+      m.useCarStore.getState().clear();
     });
   },
 }));

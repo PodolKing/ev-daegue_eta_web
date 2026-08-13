@@ -1,7 +1,8 @@
 import { getApiBase } from "@/lib/api";
 import { sanitizeReturnUrl } from "@/lib/auth/returnUrl";
 import { useAuthStore } from "@/stores/authStore";
-
+import { useFavoriteStore } from "@/stores/favoriteStore";
+import { useCarStore } from "@/stores/carStore";
 export type OAuthProvider = "kakao" | "google" | "naver";
 
 const ACCESS_TOKEN_KEY = "accessToken";
@@ -57,9 +58,20 @@ export function consumeOAuthAccessTokenFromUrl(): boolean {
  * Called when user lands on /map (local login redirect or OAuth return).
  * Hydrates auth from localStorage Bearer → GET /me.
  */
+
+
 export async function handlePostLoginLanding(): Promise<void> {
   consumeOAuthAccessTokenFromUrl();
   await useAuthStore.getState().fetchMe();
+  if (useAuthStore.getState().user) {
+    await Promise.all([
+      useFavoriteStore.getState().hydrate(),
+      useCarStore.getState().hydrate(),
+    ]);
+  } else {
+    useFavoriteStore.getState().clear();
+    useCarStore.getState().clear();
+  }
 }
 
 /** BE `/login?oauthError=` → 사용자 문구 */
