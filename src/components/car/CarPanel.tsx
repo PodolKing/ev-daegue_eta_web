@@ -191,7 +191,7 @@ export function CarPanel() {
                       <button
                         type="button"
                         onClick={() => void setPrimary(car.id, true)}
-                        className="rounded-[8px] border border-[var(--border)] px-2 py-1 text-[11px] touch-manipulation"
+                        className="rounded-[8px] border border-[var(--border)] px-2 min-h-9 py-2 text-[11px] touch-manipulation"
                       >
                         대표
                       </button>
@@ -203,7 +203,7 @@ export function CarPanel() {
                           void removeCar(car.id);
                         }
                       }}
-                      className="rounded-[8px] border border-[var(--border)] px-2 py-1 text-[11px] text-[var(--text-muted)] touch-manipulation"
+                      className="rounded-[8px] border border-[var(--border)] px-2 min-h-9 py-2 text-[11px] text-[var(--text-muted)] touch-manipulation"
                     >
                       삭제
                     </button>

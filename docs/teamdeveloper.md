@@ -2769,3 +2769,45 @@ unCategorySearch: center + radiusKm, 성공 무메시지, 실패 console.error.
 
 ### 다음
 - 로그인 후 ★ 탭이 즉시 채워지는지, 10개일 때 안 켜지고 시트만 뜨는지 확인.
+
+## 2026-08-14 — Agent 수정 권한: 규모 게이트
+
+### 한 일
+- BE 전면 사전승인 → 파일 5개 초과 또는 ~50줄 초과 시 승인·검토로 변경.
+- .cursor/rules/backend-permission.mdc, docs/rules/01_agent_permissions.md, docs/important.md §5 + web/api sync, api-files.mdc 정합.
+
+### 결정
+- web/·api/ 소규모 수정은 승인 없이 진행 가능. TMAP 잠금은 규모 무관 유지.
+
+### 다음
+- (없음 — 규칙만)
+
+## 2026-08-14 — 마이페이지 주소 좌표 PATCH
+
+### 한 일
+- PATCH /me에 userLat·userLng 추가 (schema/controller/service).
+- FE updateProfile·MyPagePanel 저장 시 주소 검색 좌표 함께 전송.
+
+### 결정
+- 가입과 동일하게 프로필 수정에서도 좌표 저장. 비밀번호 PATCH는 여전히 후속.
+
+### 다음
+- 마이페이지에서 주소 검색 → 저장 → /me에 좌표 유지되는지 확인.
+
+
+## 2026-08-14 — 마이페이지 회원 수정·탈퇴·UI
+
+### 한 일
+- authStore: provider·주소·좌표 매핑, updateProfile(PATCH /me), withdraw(DELETE /me) + store clear.
+- MyPagePanel: /me hydrate, 저장(닉·주소·상세·좌표), 탈퇴 confirm·안내 문구, 성공 시 지도로 패널 닫기.
+- UI: 「내 정보 수정」상단 접기/펴기(기본 접힘), 주요 메뉴 일렬(+주변·날씨 비활성 행).
+- BE PATCH /me에 userLat·userLng 추가 (가입과 동일).
+- login: provider 매핑, 토큰 없으면 assign 금지. CarPanel·GuestAuthBanner 터치 min-h-9.
+- 문서: 작업진행상항·auth_api·auth_ux·본 로그. Agent 규모 게이트(파일5+/~50줄+) 반영됨.
+
+### 결정
+- 탈퇴는 소프트 삭제 유지(연관 DB 미삭제). 유저 문구는 로그인·이용 불가만.
+- 비밀번호 변경은 API 없어 UI 제외. 좌표는 주소 검색 후 저장 시 서버 반영.
+
+### 다음
+- 포인트 FE(잔액·내역·PortOne 충전). 마이페이지 주소 검색→저장→좌표 유지 수동 확인.
