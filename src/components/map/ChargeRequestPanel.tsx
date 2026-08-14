@@ -91,7 +91,10 @@ export function ChargeRequestPanel({
                     onClick={() => setChgerId(c.chgerId)}
                     aria-pressed={active}
                     className={[
-                      "flex w-full items-center justify-between gap-2 rounded-[var(--radius-md)] px-3 py-2.5 text-left touch-manipulation",
+                      "flex w-full items-center justify-between gap-2 rounded-[var(--radius-md)] border px-3 py-2.5 text-left touch-manipulation",
+                      slow
+                        ? "border-transparent"
+                        : "border-[var(--accent)]",
                       active
                         ? "bg-[var(--accent-soft)] ring-1 ring-[var(--accent)]"
                         : "bg-[var(--surface-muted)]",
