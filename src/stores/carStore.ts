@@ -30,7 +30,19 @@ type CarState = {
 };
 
 function primaryFrom(cars: Car[]): Car | null {
-  return cars.find((c) => c.isPrimary) ?? cars[0] ?? null;
+  return cars.find((c) => c.isPrimary) ?? null;
+}
+
+export function carTitle(car: Car): string {
+  if (car.customModelName) return car.customModelName;
+  if (car.carModel) {
+    return `${car.carModel.manufacturer} · ${car.carModel.modelName}`;
+  }
+  return "차량";
+}
+
+export function carDisplayLabel(car: Car): string {
+  return [carTitle(car), car.carNumber].filter(Boolean).join(" · ");
 }
 
 function onAuthFail(set: (p: Partial<CarState>) => void) {
