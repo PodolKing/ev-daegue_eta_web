@@ -2838,3 +2838,27 @@ unCategorySearch: center + radiusKm, 성공 무메시지, 실패 console.error.
 
 ### 다음
 - chger 선택 → 사용량 → usage_orders. PortOne 실결제·웹훅은 수동 확인.
+
+## 2026-08-14 — 소셜 닉네임은 가입 시에만 생성
+
+### 한 일
+- upsert_social_user: 기존 계정 재로그인 시 nickname 덮어쓰기 제거. 마이페이지에서 바꾼 닉네임 유지.
+
+### 결정
+- 소셜 닉네임(구글1234 등)은 최초 가입에만 부여. 로그인마다 재생성하지 않음.
+
+### 다음
+- 구글 재로그인 후 마이페이지 닉네임이 유지되는지 확인.
+
+## 2026-08-14 — 충전 요청 UI 2차 (선택·kWh)
+
+### 한 일
+- ChargeRequestPanel: 대기(status=2) 기 목록, 고속 위·출력 높은 순, 4줄+스크롤, kWh 칩 5/10/20/50, 대표차 안내.
+- StationDetailCard: 충전 요청→chargeMode, 비로그인 LoginBottomSheet. 충전 모드 하단은 뒤로+결제(길찾기 숨김). TMAP/MapView 미수정.
+
+### 결정
+- 상세 카드 하단 2칸을 모드별로 재사용. 카드 통째 리팩터 안 함.
+- 완속은 목록에서 빼지 않고 아래로만. 결제 버튼은 기+kWh 유효 시 활성, usage_orders 미연결.
+
+### 다음
+- usage_orders request → pre-authorize → complete → pay. BE ev_charger_status 변조는 합의 위반(막히면 최소 수정·승인).

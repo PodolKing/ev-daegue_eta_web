@@ -6,6 +6,8 @@ import type { Car, ChargingPort } from "@/types/car";
 import { useAuthStore } from "@/stores/authStore";
 import { PortGlyph } from "@/components/car/PortGlyph";
 import {
+  carDisplayLabel,
+  carTitle,
   effectiveChargingPort,
   useCarStore,
 } from "@/stores/carStore";
@@ -26,12 +28,11 @@ function portLabel(port: ChargingPort | null | undefined): string {
   return PORT_OPTIONS.find((p) => p.port === port)?.label ?? port;
 }
 
-function carTitle(car: Car): string {
-  if (car.customModelName) return car.customModelName;
-  if (car.carModel) {
-    return `${car.carModel.manufacturer} · ${car.carModel.modelName}`;
-  }
-  return "차량";
+function confirmReplacePrimary(current: Car | null): boolean {
+  if (current == null || current.id < 0) return true;
+  return window.confirm(
+    `현재 대표(${carDisplayLabel(current)})를 이 차량으로 바꿀까요?`,
+  );
 }
 
 function buildTempCar(port: ChargingPort): Car {
@@ -74,11 +75,16 @@ export function CarPanel() {
   const [overridePort, setOverridePort] = useState(false);
   const [chargingPort, setChargingPort] = useState<ChargingPort | "">("");
   const [isPrimary, setIsPrimary] = useState(true);
+  const hasRealPrimary = primaryCar != null && !isTemp;
 
   useEffect(() => {
     if (!isAuthenticated) return;
     void useCarStore.getState().hydrate();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    setIsPrimary(!hasRealPrimary);
+  }, [hasRealPrimary]);
 
   const applyTempPort = (port: ChargingPort) => {
     setCars([buildTempCar(port)]);
@@ -117,6 +123,10 @@ export function CarPanel() {
       return;
     }
 
+    if (isPrimary && !confirmReplacePrimary(hasRealPrimary ? primaryCar : null)) {
+      return;
+    }
+
     const ok = await createCar({
       carModelId: isCustom ? null : Number(modelId),
       customModelName: isCustom ? customModelName.trim() : null,
@@ -130,7 +140,6 @@ export function CarPanel() {
     setCustomModelName("");
     setOverridePort(false);
     setChargingPort("");
-    setIsPrimary(true);
   };
 
   return (
@@ -190,7 +199,10 @@ export function CarPanel() {
                     {!car.isPrimary ? (
                       <button
                         type="button"
-                        onClick={() => void setPrimary(car.id, true)}
+                        onClick={() => {
+                          if (!confirmReplacePrimary(primaryCar)) return;
+                          void setPrimary(car.id, true);
+                        }}
                         className="rounded-[8px] border border-[var(--border)] px-2 min-h-9 py-2 text-[11px] touch-manipulation"
                       >
                         대표

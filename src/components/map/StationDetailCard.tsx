@@ -8,11 +8,14 @@ import {
   isSlowChargerType,
 } from "@/lib/chargerTypes";
 import { FavoriteStarButton } from "@/components/map/FavoriteStarButton";
-import { UnimplementedBadge } from "@/components/ui/Unimplemented";
 import { parkingBarClass, parkingKind } from "@/lib/parking";
 import { useMapStore } from "@/stores/mapStore";
 import { useRecommendStore } from "@/stores/recommendStore";
 import { useRouteStore } from "@/stores/routeStore";
+import { ChargeRequestPanel } from "@/components/map/ChargeRequestPanel";
+import { LoginBottomSheet } from "@/components/auth/LoginBottomSheet";
+import { buildMapReturnUrl } from "@/lib/auth/returnUrl";
+import { useAuthStore } from "@/stores/authStore";
 
 /** 세부 패널 표시용 — 타입/API 연결 시 여기만 교체하면 됨. */
 type StationMetaDisplay = {
@@ -81,10 +84,17 @@ export function StationDetailCard() {
   const recommendActive = useRecommendStore((s) => s.active);
 
   const [showMeta, setShowMeta] = useState(false);
-  // const [typeTipCode, setTypeTipCode] = useState<string | null>(null); // 짧은칩+탭 전체명 초안
-
+  const [chargeMode, setChargeMode] = useState(false);
+  const [chargeCanPay, setChargeCanPay] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const center = useMapStore((s) => s.center);
+  const zoom = useMapStore((s) => s.zoom);
+  const radiusKm = useMapStore((s) => s.radiusKm);
   useEffect(() => {
     setShowMeta(false);
+    setChargeMode(false);
+    setChargeCanPay(false);
     // setTypeTipCode(null);
   }, [selectedId]);
 
@@ -131,6 +141,7 @@ export function StationDetailCard() {
 
   const closeCard = () => {
     setShowMeta(false);
+    setChargeMode(false);
     setSelectedId(null);
     // 경로 중이면 목록(half)을 열지 않음 — PlaceSummaryBar Directions 카드 유지
     if (routeActive) {
@@ -144,11 +155,11 @@ export function StationDetailCard() {
     <article
       className={[
         "animate-fade-up w-full border border-[var(--border)] bg-white/95 shadow-[var(--shadow-md)] backdrop-blur-md transition-[max-width,padding,min-height] duration-200",
-        routeMode || metaMode
+        routeMode || metaMode || chargeMode
           ? [
               "max-w-[360px] rounded-[var(--radius-lg)] p-5 md:max-w-[380px]",
               // 세부 5줄이 스크롤 없이 들어가도록 meta는 조금 더 여유
-              metaMode
+              metaMode || chargeMode
                 ? "min-h-[min(100%,380px)]"
                 : "min-h-[min(100%,340px)]",
             ].join(" ")
@@ -158,7 +169,13 @@ export function StationDetailCard() {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-muted)]">
-            {routeMode ? "Directions" : metaMode ? "Details" : "Station"}
+            {routeMode
+              ? "Directions"
+              : metaMode
+                ? "Details"
+                : chargeMode
+                  ? "Charge"
+                  : "Station"}
           </p>
           <h3
             className="mt-1 truncate text-[17px] font-bold tracking-tight text-[var(--text)]"
@@ -234,6 +251,11 @@ export function StationDetailCard() {
             )}
           </div>
         </div>
+      ) : chargeMode ? (
+        <ChargeRequestPanel
+          station={station}
+          onCanPayChange={setChargeCanPay}
+        />
       ) : metaMode ? (
         <div
           className="ev-scroll-panel mt-3 max-h-[min(300px,46dvh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-1"
@@ -528,48 +550,91 @@ export function StationDetailCard() {
             뒤로
           </button>
         ) : null}
-        {!routeMode && !metaMode ? (
+        {!routeMode && !metaMode && !chargeMode ? (
           <button
             type="button"
-            disabled
-            aria-disabled="true"
-            className="relative flex flex-1 items-center justify-center gap-1 rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] touch-manipulation"
+            onClick={() => {
+              if (!isAuthenticated) {
+                setLoginOpen(true);
+                return;
+              }
+              setShowMeta(false);
+              setChargeMode(true);
+            }}
+            className="flex flex-1 items-center justify-center rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)] touch-manipulation"
           >
             충전 요청
-            <UnimplementedBadge className="absolute -right-0.5 -top-1.5" />
           </button>
         ) : null}
-        <button
-          type="button"
-          disabled={recommendActive}
-          aria-disabled={recommendActive}
-          title={
-            recommendActive
-              ? "아래 AI 목록에서 「이 충전소로 길찾기」를 사용하세요"
-              : undefined
-          }
-          onClick={() => {
-            if (recommendActive) return;
-            startDirections({
-              name: station.name ?? station.stationId,
-              address: station.address ?? "",
-              lat: station.lat,
-              lng: station.lng,
-              stationId: station.stationId,
-            });
-          }}
-          className={[
-            "relative flex items-center justify-center gap-1 rounded-[var(--radius-pill)] bg-[var(--accent)] px-4 py-2.5 text-[13px] font-semibold text-white touch-manipulation",
-            routeMode || metaMode ? "flex-[1.4]" : "flex-[1.3]",
-            recommendActive
-              ? "cursor-not-allowed opacity-40"
-              : "transition hover:opacity-90",
-          ].join(" ")}
-        >
-          {routeMode && routeStatus === "ready" ? "다시 길찾기" : "길찾기"}
-          <span aria-hidden>›</span>
-        </button>
+        {chargeMode && !routeMode ? (
+          <button
+            type="button"
+            onClick={() => setChargeMode(false)}
+            className="flex flex-1 items-center justify-center rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)] touch-manipulation"
+          >
+            뒤로
+          </button>
+        ) : null}
+        {chargeMode && !routeMode ? (
+          <button
+            type="button"
+            disabled={!chargeCanPay}
+            aria-disabled={!chargeCanPay}
+            className={[
+              "relative flex flex-[1.4] items-center justify-center gap-1 rounded-[var(--radius-pill)] bg-[var(--accent)] px-4 py-2.5 text-[13px] font-semibold text-white touch-manipulation",
+              !chargeCanPay
+                ? "cursor-not-allowed opacity-40"
+                : "transition hover:opacity-90",
+            ].join(" ")}
+          >
+            결제
+            <span aria-hidden>›</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={recommendActive}
+            aria-disabled={recommendActive}
+            title={
+              recommendActive
+                ? "아래 AI 목록에서 「이 충전소로 길찾기」를 사용하세요"
+                : undefined
+            }
+            onClick={() => {
+              if (recommendActive) return;
+              startDirections({
+                name: station.name ?? station.stationId,
+                address: station.address ?? "",
+                lat: station.lat,
+                lng: station.lng,
+                stationId: station.stationId,
+              });
+            }}
+            className={[
+              "relative flex items-center justify-center gap-1 rounded-[var(--radius-pill)] bg-[var(--accent)] px-4 py-2.5 text-[13px] font-semibold text-white touch-manipulation",
+              routeMode || metaMode ? "flex-[1.4]" : "flex-[1.3]",
+              recommendActive
+                ? "cursor-not-allowed opacity-40"
+                : "transition hover:opacity-90",
+            ].join(" ")}
+          >
+            {routeMode && routeStatus === "ready" ? "다시 길찾기" : "길찾기"}
+            <span aria-hidden>›</span>
+          </button>
+        )}
       </div>
+      <LoginBottomSheet
+        open={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        returnUrl={buildMapReturnUrl({
+          lat: center.lat,
+          lng: center.lng,
+          zoom,
+          radius: radiusKm,
+        })}
+        message="충전 요청은 로그인 시 제공됩니다"
+        description={null}
+      />
     </article>
   );
 }
