@@ -10,6 +10,7 @@ import { MobileStationSheet } from "@/components/map/MobileStationSheet";
 import { DestinationNearbyChip } from "@/components/map/DestinationNearbyChip";
 import { SearchThisAreaButton } from "@/components/map/SearchThisAreaButton";
 import { CarPanel } from "@/components/car/CarPanel";
+import { FavoriteNoticeSheet } from "@/components/favorites/FavoriteNoticeSheet";
 import { FavoritesPanel } from "@/components/favorites/FavoritesPanel";
 import { MyPagePanel } from "@/components/mypage/MyPagePanel";
 import { PointsPanel } from "@/components/points/PointsPanel";
@@ -301,6 +302,7 @@ export function AppShell() {
           <MobileBottomNav active={activeNav} onSelect={selectNav} />
         )}
       </div>
+      <FavoriteNoticeSheet />
     </div>
   );
 }
