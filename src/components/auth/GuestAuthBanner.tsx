@@ -50,7 +50,7 @@ export function GuestAuthBanner({
             filterOption: null,
           })
         }
-        className="shrink-0 rounded-[var(--radius-pill)] bg-[var(--text)] px-2.5 py-1 text-[11px] font-semibold text-white touch-manipulation"
+        className="shrink-0 rounded-[var(--radius-pill)] bg-[var(--text)] px-2.5 min-h-9 px-3 py-2 text-[12px] font-semibold text-white touch-manipulation"
       >
         로그인
       </Link>

@@ -377,3 +377,163 @@ export async function searchStations(q: string, limit = 20) {
     count: number;
   }>;
 }
+
+// --- points ---
+
+export type PointsBalance = { balance: number };
+
+export type PointChargeItem = {
+  id: number;
+  paymentId: string | null;
+  amountKrw: number;
+  pointsGranted: number;
+  bonusPoints: number;
+  status: string;
+  paidAt: string | null;
+  createdAt: string;
+};
+
+export type PointChargeCreate = {
+  paymentId: string;
+  orderName: string;
+  amountKrw: number;
+  pointsGranted: number;
+  bonusPoints: number;
+  storeId: string;
+  channelKey: string;
+  status: string;
+  customerEmail: string;
+  customerName: string;
+};
+
+export type PointChargeComplete = {
+  processed: boolean;
+  paymentId: string;
+  status: string;
+  amountKrw: number;
+  pointsGranted: number;
+  bonusPoints: number;
+  balance: number;
+  message: string;
+};
+
+export type PointCreditResult = {
+  processed: boolean;
+  points: number;
+  balance: number;
+  nickname: string;
+  message: string;
+};
+
+async function parsePointsError(res: Response, fallback: string): Promise<never> {
+  // 403 = ADMIN 아님 등 — 토큰 유지. 401만 세션 무효.
+  if (res.status === 401) {
+    clearAccessToken();
+    throw new Error("인증 필요");
+  }
+  const text = await res.text().catch(() => "");
+  let detail = text;
+  try {
+    const parsed = JSON.parse(text) as { detail?: unknown };
+    if (typeof parsed.detail === "string" && parsed.detail.trim()) {
+      detail = parsed.detail.trim();
+    }
+  } catch {
+    /* raw */
+  }
+  throw new Error(detail || `${fallback} (${res.status})`);
+}
+
+export async function fetchPointsBalance(): Promise<PointsBalance> {
+  requireAccessToken();
+  const res = await fetch(`${getApiBase()}/api/v1/points/balance`, {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) await parsePointsError(res, "points balance");
+  return (await res.json()) as PointsBalance;
+}
+
+export async function fetchPointCharges(limit = 20): Promise<{
+  items: PointChargeItem[];
+  count: number;
+}> {
+  requireAccessToken();
+  const q = new URLSearchParams({ limit: String(limit) });
+  const res = await fetch(`${getApiBase()}/api/v1/points/charges?${q}`, {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) await parsePointsError(res, "points charges");
+  return (await res.json()) as { items: PointChargeItem[]; count: number };
+}
+
+export async function createPointCharge(
+  amountKrw: number,
+): Promise<PointChargeCreate> {
+  requireAccessToken();
+  const res = await fetch(`${getApiBase()}/api/v1/points/charges`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ amountKrw }),
+    cache: "no-store",
+  });
+  if (!res.ok) await parsePointsError(res, "points create charge");
+  return (await res.json()) as PointChargeCreate;
+}
+
+export async function completePointCharge(
+  paymentId: string,
+): Promise<PointChargeComplete> {
+  requireAccessToken();
+  const res = await fetch(`${getApiBase()}/api/v1/points/charges/complete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ paymentId }),
+    cache: "no-store",
+  });
+  if (!res.ok) await parsePointsError(res, "points complete charge");
+  return (await res.json()) as PointChargeComplete;
+}
+export async function failPointCharge(paymentId: string): Promise<void> {
+  requireAccessToken();
+  const res = await fetch(`${getApiBase()}/api/v1/points/charges/fail`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ paymentId }),
+    cache: "no-store",
+  });
+  if (!res.ok) await parsePointsError(res, "points fail charge");
+}
+
+export async function creditPointsApi(
+  points: number,
+  nickname: string,
+  memo?: string,
+): Promise<PointCreditResult> {
+  requireAccessToken();
+  const res = await fetch(`${getApiBase()}/api/v1/points/credit`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({
+      nickname: nickname.trim(),
+      points,
+      ...(memo != null && memo.trim() ? { memo: memo.trim() } : {}),
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) await parsePointsError(res, "points credit");
+  return (await res.json()) as PointCreditResult;
+}
