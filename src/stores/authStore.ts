@@ -4,6 +4,7 @@ import { getApiBase } from "@/lib/api";
 export type AuthUser = {
   id: string;
   nickname: string;
+  role: string;
   address?: string | null;
   detailAddress?: string | null;
   provider?: string;
@@ -34,6 +35,7 @@ function clearAccessToken(): void {
 type MeUserJson = {
   id: number | string;
   nickname: string;
+  role?: string | null;
   point?: number;
   address?: string | null;
   detailAddress?: string | null;
@@ -46,6 +48,7 @@ function mapUser(u: MeUserJson): NonNullable<AuthUser> {
   return {
     id: String(u.id),
     nickname: u.nickname,
+    role: typeof u.role === "string" ? u.role : "USER",
     address: u.address ?? null,
     detailAddress: u.detailAddress ?? null,
     provider: u.provider ?? undefined,

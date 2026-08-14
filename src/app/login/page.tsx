@@ -190,6 +190,7 @@ function LoginPageContent() {
         user?: {
           id: number;
           nickname: string;
+          role?: string;
           point?: number;
           provider?: string | null;
           address?: string | null;
@@ -217,6 +218,7 @@ function LoginPageContent() {
               setUser({
                 id: String(result.user.id),
                 nickname: result.user.nickname,
+                role: typeof result.user.role === "string" ? result.user.role : "USER",
                 address: result.user.address ?? null,
                 detailAddress: result.user.detailAddress ?? null,
                 provider: result.user.provider ?? undefined,

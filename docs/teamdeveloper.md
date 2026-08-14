@@ -2811,3 +2811,30 @@ unCategorySearch: center + radiusKm, 성공 무메시지, 실패 console.error.
 
 ### 다음
 - 포인트 FE(잔액·내역·PortOne 충전). 마이페이지 주소 검색→저장→좌표 유지 수동 확인.
+
+## 2026-08-14 — 포인트 패널 금액 직접 입력
+
+### 한 일
+- PointsPanel: PortOne/ADMIN 자유충전 모두 **입력창 + 프리셋이 창에 값 채움 + 충전 버튼** 흐름으로 변경
+- BE 한도(1천~100만 원 / 1~100만 P) 클라이언트 선검증
+
+### 결정
+- 프리셋은 즉시 결제하지 않음. 창에 넣은 뒤 충전 버튼만 실행
+
+### 다음
+- PortOne env 키 연동 실결제 확인, ADMIN DB role 테스트
+
+## 2026-08-14 — 포인트 충전·ADMIN 자유충전 1차
+
+### 한 일
+- PointsPanel: 잔액/내역 연동, 금액 입력+가산 프리셋+초기화, PortOne 충전, ADMIN 자유충전.
+- /credit: role=ADMIN만. body nickname으로 대상 유저 지갑 적립(없으면 404). 가입 role은 항상 USER, ADMIN은 DB만.
+- authStore·login에 role. 이니시스용 합성 email/phone. POST /charges/fail, 목록에서 pending 숨김.
+- TMAP 잠금 파일 미수정. 시크릿 문서 없음.
+
+### 결정
+- 자유충전은 환불 아님. user_id 이중 필터 없음. email/전화 컬럼 복구 안 함.
+- 실패 내역은 failed로 남김. pending은 쓰레기라 목록 제외.
+
+### 다음
+- chger 선택 → 사용량 → usage_orders. PortOne 실결제·웹훅은 수동 확인.
