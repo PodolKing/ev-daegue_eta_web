@@ -340,10 +340,15 @@ export function StationDetailCard() {
           </div>
         </div>
       ) : chargeMode ? (
-        <ChargeRequestPanel
-          station={station}
-          onDraftChange={setChargeDraft}
-        />
+        <div
+          className="ev-scroll-panel mt-3 max-h-[min(440px,58dvh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-1"
+          aria-label="충전 요청"
+        >
+          <ChargeRequestPanel
+            station={station}
+            onDraftChange={setChargeDraft}
+          />
+        </div>
       ) : metaMode ? (
         <div
           className="ev-scroll-panel mt-3 max-h-[min(300px,46dvh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-1"
