@@ -1,5 +1,4 @@
 /** Canonical module: `@/stores/carStore` — filename must stay `carStore.ts`. */
-/** Canonical module: `@/stores/carStore` — filename must stay `carStore.ts`. */
 import { create } from "zustand";
 import {
   FavoriteAuthError,
