@@ -130,6 +130,12 @@ function LoginPageContent() {
       url.searchParams.delete("oauthError");
       window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
     }, [searchParams]);
+
+    useEffect(() => {
+      if (typeof window === "undefined") return;
+      if (!localStorage.getItem("accessToken")) return;
+      window.location.replace(returnUrl || DEFAULT_MAP_PATH);
+    }, [returnUrl]);
   const btnBase =
     "relative flex w-full items-center justify-center rounded-[var(--radius-pill)] px-4 py-2.5 text-[14px] font-semibold shadow-[var(--shadow-sm)] transition-[filter,transform,box-shadow] duration-150 ease-out touch-manipulation hover:brightness-[0.97] active:scale-[0.985] active:brightness-[0.94] sm:py-3 sm:text-[15px]";
 
@@ -230,7 +236,7 @@ function LoginPageContent() {
               }
             }
             const next = returnUrl || DEFAULT_MAP_PATH;
-            window.location.assign(next);
+            window.location.replace(next);
 
     } catch (err) {
       console.error(err);

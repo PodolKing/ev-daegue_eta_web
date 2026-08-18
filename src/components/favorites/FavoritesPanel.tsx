@@ -1,28 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { GuestAuthBanner } from "@/components/auth/GuestAuthBanner";
-import { StationList } from "@/components/map/StationList";
+import { FavoriteStarButton } from "@/components/map/FavoriteStarButton";
 import { searchStations, type FavoriteItem } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
+import { ensureStationLoaded } from "@/stores/ensureStationLoaded";
 import { useFavoriteStore } from "@/stores/favoriteStore";
-import type { Station } from "@/types/station";
+import { useMapStore } from "@/stores/mapStore";
 
 const fieldClass =
   "mt-1.5 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3 py-2.5 text-[16px] text-[var(--text)] outline-none focus:border-[var(--accent)] sm:text-[14px]";
-
-function favoriteItemToStation(item: FavoriteItem): Station {
-  const line = [item.address, item.memo].filter(Boolean).join(" · ");
-  return {
-    stationId: item.stationId,
-    name: item.name,
-    address: line || null,
-    lat: item.lat ?? 0,
-    lng: item.lng ?? 0,
-    availableCount: item.availableCount ?? null,
-    distanceKm: null,
-  };
-}
 
 /**
  * 즐겨찾기 패널.
@@ -100,10 +88,6 @@ export function FavoritesPanel() {
 function FavoritesListShell() {
   const items = useFavoriteStore((s) => s.items);
   const status = useFavoriteStore((s) => s.status);
-  const stations = useMemo(
-    () => items.map(favoriteItemToStation),
-    [items],
-  );
 
   if (status === "loading" && items.length === 0) {
     return (
@@ -120,7 +104,7 @@ function FavoritesListShell() {
     );
   }
 
-  if (stations.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="ev-scroll-panel min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
         <div className="m-2 rounded-[var(--radius-md)] border border-dashed border-[var(--border-strong)] px-4 py-8 text-center">
@@ -136,9 +120,83 @@ function FavoritesListShell() {
   }
 
   return (
-    <div className="min-h-0 flex-1">
-      <StationList items={stations} hideRadiusMeta />
+    <div className="ev-scroll-panel min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
+      <ul className="space-y-1">
+        {items.map((item) => (
+          <FavoriteListRow key={item.stationId} item={item} />
+        ))}
+      </ul>
     </div>
+  );
+}
+
+function FavoriteListRow({ item }: { item: FavoriteItem }) {
+  const selectedId = useMapStore((s) => s.selectedId);
+  const updateMemo = useFavoriteStore((s) => s.updateMemo);
+  const [memo, setMemo] = useState(item.memo ?? "");
+  const [saving, setSaving] = useState(false);
+  const active = item.stationId === selectedId;
+  const dirty = memo.trim() !== (item.memo ?? "").trim();
+
+  useEffect(() => {
+    setMemo(item.memo ?? "");
+  }, [item.memo, item.stationId]);
+
+  const openStation = () => {
+    void (async () => {
+      if (item.lat && item.lng) {
+        await ensureStationLoaded(item.stationId, item.lat, item.lng);
+      }
+      useMapStore.getState().selectStation(item.stationId);
+    })();
+  };
+
+  return (
+    <li
+      className={[
+        "rounded-[var(--radius-md)] px-2 py-2",
+        active ? "bg-[var(--accent-soft)]" : "hover:bg-[var(--surface-muted)]",
+      ].join(" ")}
+    >
+      <div className="flex items-start gap-1">
+        <button
+          type="button"
+          onClick={openStation}
+          className="min-w-0 flex-1 px-1 py-1 text-left touch-manipulation"
+        >
+          <span className="block truncate text-[13px] font-semibold text-[var(--text)]">
+            {item.name ?? item.stationId}
+          </span>
+          <span className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
+            {item.address ?? "주소 없음"}
+          </span>
+        </button>
+        <FavoriteStarButton stationId={item.stationId} variant="list" />
+      </div>
+      <div className="mt-1.5 flex items-center gap-1.5 px-1">
+        <input
+          type="text"
+          value={memo}
+          maxLength={100}
+          placeholder="메모"
+          onChange={(e) => setMemo(e.target.value)}
+          className="min-w-0 flex-1 rounded-[8px] border border-[var(--border)] bg-white px-2 py-1.5 text-[16px] text-[var(--text)] outline-none focus:border-[var(--accent)] sm:text-[12px]"
+        />
+        <button
+          type="button"
+          disabled={!dirty || saving}
+          onClick={async () => {
+            setSaving(true);
+            const ok = await updateMemo(item.stationId, memo.trim() || null);
+            setSaving(false);
+            if (!ok) setMemo(item.memo ?? "");
+          }}
+          className="shrink-0 rounded-[8px] border border-[var(--border)] px-2 min-h-9 py-1.5 text-[11px] font-medium touch-manipulation disabled:opacity-40"
+        >
+          {saving ? "…" : "저장"}
+        </button>
+      </div>
+    </li>
   );
 }
 

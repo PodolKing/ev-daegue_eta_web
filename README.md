@@ -1,73 +1,67 @@
 # EV SafeCharge · Web
 
-**대구 EV 세이프차지** — "가장 가까운 충전소"가 아니라, **도착했을 때 꽂을 수 있을 가능성**이 높은 충전소를 찾는 반응형 웹.
+**대구 EV 세이프차지** — “가장 가까운 충전소”가 아니라, **도착했을 때 꽂을 수 있을 가능성**이 높은 충전소를 찾는 반응형 웹입니다.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 
-## Why this product
+일반 지도 앱은 거리만 보여 줍니다. SafeCharge는 현위치 반경의 **충전소 실상태**를 보고, 대기 가능 대수(`availableCount`)를 구분해 보여 줍니다. 데이터가 없을 때(`null`)와 대기가 없을 때(`0`)를 섞지 않는 것이 제품의 핵심입니다.
 
-일반 지도 앱은 거리만 보여 줍니다. SafeCharge는 **현위치 반경의 충전소 상태**를 보고, 대기 가능 대수(`availableCount`)를 구분해 보여 줍니다.
-`null`(데이터 없음)과 `0`(대기 없음)을 섞지 않는 것이 핵심 설계입니다.
+지도는 `/map`입니다. 홈(`/`)은 지도로 이동합니다. Backend(`api/`)가 좌표·집계·로그인·결제를 담당하고, 이 앱은 화면과 TMAP만 담당합니다.
 
-## Highlights
+## 서비스에서 할 수 있는 일
 
-- **TMAP** 기반 지도 UI + BE stations API 연동 마커
-- 반경 **1 / 2 / 3 km** 선택, 직선 거리 정렬
-- 흰 배경 · Discord풍 레이아웃(아이콘 레일 · 목록 · 맵) — 지도 앱에 맞는 절제된 UI
-- 반응형(모바일·Fold 커버 폭 포함) 전제
-- 1개월 토이 범위: 외부 로그인 1종 · 포인트 잔액/충전/내역(진행 중)
+- **주변 충전소**: TMAP 지도 + 반경 1 / 2 / 3 km 목록. 마커와 카드에 대기 가능 대수를 표시
+- **검색·상세**: 충전소 검색, 충전기 유형·주차 정보, 추천 모델 연동(별도 추천 서버)
+- **계정**: 이메일 가입/로그인, 카카오·구글·네이버. JWT Bearer · `GET /auth/me`
+- **내 정보**: 즐겨찾기, 내 차량, 마이페이지(프로필 수정, 소프트 탈퇴)
+- **포인트**: PortOne으로 원→P 충전, 잔액·내역. 관리자만 지갑 수동 조절(`/credit`)
+- **이용 결제(데모)**: 대기 충전기 + kWh → 가결제·완료·포인트 차감. 공공 충전기 status는 **읽기만**
+- **모바일**: 브라우저 페이지 줌은 막고, 지도 핀치만 `#ev-tmap-map`에서 허용
 
-## Roadmap (1개월 토이 스코프)
-
-| 주차 | 목표 |
-|---|---|
-| 1주차 | FE/BE 저장소 분리, TMAP 빈 지도, 로그인 1종 확정 |
-| 2주차 | stations 실좌표 마커 연동, 로그인 후 잔액 표시 |
-| 3주차 | 포인트 충전 플로우 + 내역 UI |
-| 4주차 | 반응형 QA(375 / 393 / 430), 데모 시나리오 정리 |
-
-> 팀 합의사항(2026-07-23/24) 기준 로드맵입니다. 초기 기획서의 대규모 확장(ML 추천 등)은 이번 1개월 범위 밖이며, 필요 시 팀 재합의 후 진행합니다.
+데모 범위는 동작합니다. 예약, 날씨, 상용 정산급 결제, PortOne 콘솔 취소↔앱 포인트 자동 동기화는 범위 밖입니다.
 
 ## Tech stack
 
 | Area | Choice |
 |---|---|
-| Framework | Next.js (App Router) |
+| Framework | Next.js 16 (App Router) |
 | Language | TypeScript |
 | UI | React 19, Tailwind CSS |
-| State | Zustand (도메인 분리) |
+| State | Zustand |
 | Map | TMAP JavaScript / Web SDK |
-| API | 통합 Backend만 호출 (`NEXT_PUBLIC_API_BASE_URL`) |
+| Payments (browser) | PortOne browser SDK |
+| API | Backend만 호출 (`NEXT_PUBLIC_API_BASE_URL`) |
 
-Frontend는 DB·외부 REST 키에 직접 접근하지 않습니다. 브라우저에 노출되는 것은 지도 SDK용 공개 키뿐입니다.
+프론트는 DB·서버 REST 키에 직접 접근하지 않습니다. 브라우저에 노출되는 것은 지도 SDK용 공개 키뿐입니다.
 
+## Quick start
 
+```bash
+cd web
+npm install
+copy .env.example .env.local   # macOS/Linux: cp .env.example .env.local
+npm run dev
+```
 
-Open [http://localhost:3000](http://localhost:3000)
+[http://localhost:3000](http://localhost:3000) — 지도는 `/map`. API 서버(`api/`)도 함께 켭니다.
 
 ## Configuration (names only)
 
 | Variable | Role |
 |---|---|
 | `NEXT_PUBLIC_API_BASE_URL` | Backend base URL |
-| `NEXT_PUBLIC_TMAP_MAP_KEY` | TMAP **map SDK** (browser). Separate from server `TMAP_APP_KEY` (POI/ETA) |
+| `NEXT_PUBLIC_TMAP_MAP_KEY` | TMAP **map SDK** (browser). 서버 `TMAP_APP_KEY`(POI/ETA)와 별개 |
 
-Never commit real `.env` values. See `.env.example`.
-
-## Current status
-
-- 완료: FE 셸/레이아웃, 반경(1/2/3km) UI, TMAP 플레이스홀더 맵, stations API 클라이언트 뼈대
-- 진행 중: TMAP SDK 실연동, stations 실좌표 마커 표시
-- 예정: 로그인 1종 UI, 포인트 잔액/충전/내역 UI
+실값은 커밋하지 않습니다. `.env.example`만 참고합니다.
 
 ## Related
 
-- Backend repo: `api` (FastAPI · stations · auth/points)
-- API contract summary: `docs/fe_rules.md`
-- Team conventions: `docs/rules/`
+- Backend: `api` (FastAPI)
+- Stations 계약: `docs/stations_api.md`
+- 팀 로그: `docs/teamdeveloper.md`
 
 ## License / notice
 
-팀 프로젝트·학습용 초안입니다. 상용 정산·전국 확장·원격 제어는 범위 밖입니다.
+팀 프로젝트·학습용 초안입니다. 상용 정산·전국 확장·원격 제어·예약은 범위 밖입니다.

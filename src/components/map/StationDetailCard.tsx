@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   detailAvailabilityLines,
   getChargerTypeLabel,
@@ -12,10 +12,18 @@ import { parkingBarClass, parkingKind } from "@/lib/parking";
 import { useMapStore } from "@/stores/mapStore";
 import { useRecommendStore } from "@/stores/recommendStore";
 import { useRouteStore } from "@/stores/routeStore";
-import { ChargeRequestPanel } from "@/components/map/ChargeRequestPanel";
+import { ChargeRequestPanel, type ChargePayDraft } from "@/components/map/ChargeRequestPanel";
 import { LoginBottomSheet } from "@/components/auth/LoginBottomSheet";
 import { buildMapReturnUrl } from "@/lib/auth/returnUrl";
 import { useAuthStore } from "@/stores/authStore";
+import {
+  cancelUsageOrder,
+  completeUsageOrder,
+  payUsageOrder,
+  preAuthorizeUsageOrder,
+  requestUsageOrder,
+} from "@/lib/api";
+
 
 /** 세부 패널 표시용 — 타입/API 연결 시 여기만 교체하면 됨. */
 type StationMetaDisplay = {
@@ -85,7 +93,16 @@ export function StationDetailCard() {
 
   const [showMeta, setShowMeta] = useState(false);
   const [chargeMode, setChargeMode] = useState(false);
-  const [chargeCanPay, setChargeCanPay] = useState(false);
+  const [chargeDraft, setChargeDraft] = useState<ChargePayDraft>({
+    canPay: false,
+    chgerId: null,
+    kwh: 0,
+    limitAmountKrw: 0,
+  });
+  const [chargePaying, setChargePaying] = useState(false);
+  const payInFlightRef = useRef(false);
+  const [chargePayMessage, setChargePayMessage] = useState<string | null>(null);
+  const [chargeSettled, setChargeSettled] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const center = useMapStore((s) => s.center);
@@ -94,12 +111,68 @@ export function StationDetailCard() {
   useEffect(() => {
     setShowMeta(false);
     setChargeMode(false);
-    setChargeCanPay(false);
-    // setTypeTipCode(null);
+    setChargeDraft({
+      canPay: false,
+      chgerId: null,
+      kwh: 0,
+      limitAmountKrw: 0,
+    });
+    setChargePaying(false);
+    setChargePayMessage(null);
+    setChargeSettled(false);
   }, [selectedId]);
 
   const station = stations.find((s) => s.stationId === selectedId);
   if (!station) return null;
+  const stationId = station.stationId;
+  async function handleUsagePay() {
+    if (
+      payInFlightRef.current ||
+      chargePaying ||
+      !chargeDraft.canPay ||
+      chargeDraft.chgerId == null
+    ) {
+      return;
+    }
+    payInFlightRef.current = true;
+    setChargePaying(true);
+    setChargePayMessage(null);
+    const idempotencyKey =
+      typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `preauth_${Date.now()}`;
+    let heldId: number | null = null;
+    try {
+      const req = await requestUsageOrder(stationId, chargeDraft.chgerId);
+      if (!req.ready) {
+        setChargePayMessage(req.message);
+        return;
+      }
+      const held = await preAuthorizeUsageOrder({
+        statId: stationId,
+        chgerId: chargeDraft.chgerId,
+        limitAmountKrw: chargeDraft.limitAmountKrw,
+        idempotencyKey,
+      });
+      heldId = held.id;
+      await completeUsageOrder(held.id, chargeDraft.kwh);
+      const paid = await payUsageOrder(held.id);
+      setChargeSettled(true);
+      setChargePayMessage(paid.message || "요금 정산이 완료되었습니다");
+    } catch (e) {
+      if (heldId != null) {
+        try {
+          await cancelUsageOrder(heldId);
+        } catch {
+          /* 홀드 롤백 실패 — 화면은 원래 결제 에러 */
+        }
+      }
+      setChargePayMessage(e instanceof Error ? e.message : "결제에 실패했습니다");
+    } finally {
+      payInFlightRef.current = false;
+      setChargePaying(false);
+    }
+  }
 
   const META_PLACEHOLDER: StationMetaDisplay = {
     useTime: station.useTime ?? "—",
@@ -113,6 +186,21 @@ export function StationDetailCard() {
   const chargerTypes = station.chargerTypes ?? [];
   const parkingTone = parkingKind(station.parkingFree);
   const avail = detailAvailabilityLines(station);
+  const availOpenOk =
+    station.availableCount != null && station.availableCount > 0;
+
+  function closeChargeMode() {
+    setChargeMode(false);
+    setChargeSettled(false);
+    setChargePayMessage(null);
+  }
+
+  function openChargeMode() {
+    setShowMeta(false);
+    setChargeSettled(false);
+    setChargePayMessage(null);
+    setChargeMode(true);
+  }
   const forThisStation = routeDest?.stationId === station.stationId;
   /** 활성 경로 — 다른 충전소를 보고 있어도 취소 가능해야 함. */
   const routeActive =
@@ -254,7 +342,7 @@ export function StationDetailCard() {
       ) : chargeMode ? (
         <ChargeRequestPanel
           station={station}
-          onCanPayChange={setChargeCanPay}
+          onDraftChange={setChargeDraft}
         />
       ) : metaMode ? (
         <div
@@ -432,7 +520,21 @@ export function StationDetailCard() {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-3">
+            <button
+              type="button"
+              disabled={!availOpenOk}
+              onClick={() => {
+                if (!availOpenOk) return;
+                openChargeMode();
+              }}
+              aria-label={availOpenOk ? "대기 충전기 선택" : undefined}
+              className={[
+                "rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-3 text-left touch-manipulation",
+                availOpenOk
+                  ? "hover:bg-[var(--accent-soft)]"
+                  : "cursor-default",
+              ].join(" ")}
+            >
               {avail.mixed ? (
                 <ul className="space-y-2" aria-label="타입별 충전가능">
                   {avail.lines.map((line) => (
@@ -445,7 +547,9 @@ export function StationDetailCard() {
                       </span>
                       <span
                         className={`text-[20px] font-extrabold leading-none tracking-tight ${line.tone}`}
-                        style={{ fontFamily: "var(--font-display), sans-serif" }}
+                        style={{
+                          fontFamily: "var(--font-display), sans-serif",
+                        }}
                       >
                         {line.value}
                       </span>
@@ -465,7 +569,7 @@ export function StationDetailCard() {
                   </p>
                 </>
               )}
-            </div>
+            </button>
             <div className="rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-3">
               <p
                 className="text-[28px] font-extrabold leading-none tracking-tight text-[var(--text)]"
@@ -530,6 +634,19 @@ export function StationDetailCard() {
           </button>
         </div>
       ) : null}
+      {chargePayMessage ? (
+        <p
+          className={[
+            "mt-3 text-[13px] leading-snug",
+            chargeSettled
+              ? "font-semibold text-[var(--accent)]"
+              : "text-[var(--text-secondary)]",
+          ].join(" ")}
+        >
+          {chargeSettled ? "정산 완료 · " : ""}
+          {chargePayMessage}
+        </p>
+      ) : null}
 
       <div className="mt-4 flex gap-2">
         {routeMode ? (
@@ -563,13 +680,13 @@ export function StationDetailCard() {
             }}
             className="flex flex-1 items-center justify-center rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)] touch-manipulation"
           >
-            충전 요청
+            이용 결제
           </button>
         ) : null}
         {chargeMode && !routeMode ? (
           <button
             type="button"
-            onClick={() => setChargeMode(false)}
+            onClick={() => closeChargeMode()}
             className="flex flex-1 items-center justify-center rounded-[var(--radius-pill)] border border-[var(--border)] bg-white px-3 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)] touch-manipulation"
           >
             뒤로
@@ -578,16 +695,40 @@ export function StationDetailCard() {
         {chargeMode && !routeMode ? (
           <button
             type="button"
-            disabled={!chargeCanPay}
-            aria-disabled={!chargeCanPay}
+            disabled={
+              isAuthenticated &&
+              !chargeSettled &&
+              !chargePaying &&
+              !chargeDraft.canPay
+            }
+            aria-disabled={
+              isAuthenticated &&
+              !chargeSettled &&
+              !chargePaying &&
+              !chargeDraft.canPay
+            }
+            onClick={() => {
+              if (chargeSettled || chargePaying) {
+                closeChargeMode();
+                return;
+              }
+              if (!isAuthenticated) {
+                setLoginOpen(true);
+                return;
+              }
+              void handleUsagePay();
+            }}
             className={[
               "relative flex flex-[1.4] items-center justify-center gap-1 rounded-[var(--radius-pill)] bg-[var(--accent)] px-4 py-2.5 text-[13px] font-semibold text-white touch-manipulation",
-              !chargeCanPay
+              isAuthenticated &&
+              !chargeSettled &&
+              !chargePaying &&
+              !chargeDraft.canPay
                 ? "cursor-not-allowed opacity-40"
                 : "transition hover:opacity-90",
             ].join(" ")}
           >
-            결제
+            {chargeSettled || chargePaying ? "완료" : "결제"}
             <span aria-hidden>›</span>
           </button>
         ) : (
@@ -632,7 +773,7 @@ export function StationDetailCard() {
           zoom,
           radius: radiusKm,
         })}
-        message="충전 요청은 로그인 시 제공됩니다"
+        message="이용 결제는 로그인 시 제공됩니다"
         description={null}
       />
     </article>

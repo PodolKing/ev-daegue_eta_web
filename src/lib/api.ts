@@ -235,6 +235,30 @@ export async function toggleFavoriteApi(body: {
   }
   return res.json() as Promise<FavoriteMutationResponse>;
 }
+
+export async function updateFavoriteMemoApi(
+  stationId: string,
+  memo: string | null,
+): Promise<{ stationId: string; memo: string | null }> {
+  requireAccessToken();
+  const res = await fetch(
+    `${getApiBase()}/api/v1/favorites/${encodeURIComponent(stationId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ memo: memo?.trim() || null }),
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    await parseFavoriteError(res, "favorites memo");
+  }
+  return res.json() as Promise<{ stationId: string; memo: string | null }>;
+}
+
 export type CarListResponse = {
   items: Car[];
   count: number;
@@ -249,6 +273,11 @@ export type CarCreateBody = {
   customModelName?: string | null;
   chargingPort?: ChargingPort | null;
   isPrimary?: boolean;
+};
+export type CarUpdateBody = {
+  carNumber?: string | null;
+  customModelName?: string | null;
+  chargingPort?: ChargingPort | null;
 };
 type CarApiRow = Omit<Car, "carModel"> & {
   model?: CarModel | null;
@@ -317,6 +346,25 @@ export async function createCarApi(body: CarCreateBody): Promise<Car> {
   });
   if (!res.ok) {
     await parseFavoriteError(res, "cars create");
+  }
+  return toCar((await res.json()) as CarApiRow);
+}
+export async function updateCarApi(
+  carId: number,
+  body: CarUpdateBody,
+): Promise<Car> {
+  requireAccessToken();
+  const res = await fetch(`${getApiBase()}/api/v1/cars/updateCar/${carId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    await parseFavoriteError(res, "cars update");
   }
   return toCar((await res.json()) as CarApiRow);
 }
@@ -392,6 +440,157 @@ export type PointChargeItem = {
   paidAt: string | null;
   createdAt: string;
 };
+
+export type UsageOrderItem = {
+  id: number;
+  userId: number;
+  statId: string | null;
+  chgerId: string | null;
+  busiId: string | null;
+  kwh: number | string;
+  kwhSource: string;
+  rateMemberWon: number | string;
+  amountListKrw: number;
+  amountChargeKrw: number;
+  discountKrw: number;
+  pointsSpent: number;
+  status: string;
+  memo: string | null;
+  holdAmountKrw: number | null;
+  refundAmountKrw: number | null;
+  balance: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function fetchUsageOrders(limit = 20): Promise<{
+  items: UsageOrderItem[];
+  count: number;
+}> {
+  requireAccessToken();
+  const q = new URLSearchParams({
+    limit: String(limit),
+    status: "confirmed",
+  });
+  const res = await fetch(`${getApiBase()}/api/v1/usage-orders/list?${q}`, {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) await parsePointsError(res, "usage-orders list");
+  return (await res.json()) as { items: UsageOrderItem[]; count: number };
+}
+export type UsageOrderRequestResult = {
+  ready: boolean;
+  statId: string;
+  chgerId: string;
+  chargerStatus: string | null;
+  busiId: string | null;
+  outputKw: number | null;
+  balance: number;
+  message: string;
+};
+
+export type UsageOrderPayResult = {
+  processed: boolean;
+  order: UsageOrderItem;
+  message: string;
+};
+
+export async function requestUsageOrder(
+  statId: string,
+  chgerId: string,
+): Promise<UsageOrderRequestResult> {
+  requireAccessToken();
+  const res = await fetch(`${getApiBase()}/api/v1/usage-orders/request`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ statId, chgerId }),
+    cache: "no-store",
+  });
+  if (!res.ok) await parsePointsError(res, "usage-orders request");
+  return (await res.json()) as UsageOrderRequestResult;
+}
+
+export async function preAuthorizeUsageOrder(input: {
+  statId: string;
+  chgerId: string;
+  limitAmountKrw: number;
+  idempotencyKey: string;
+}): Promise<UsageOrderItem> {
+  requireAccessToken();
+  const res = await fetch(`${getApiBase()}/api/v1/usage-orders/pre-authorize`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({
+      statId: input.statId,
+      chgerId: input.chgerId,
+      limitAmountKrw: input.limitAmountKrw,
+      idempotencyKey: input.idempotencyKey,
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) await parsePointsError(res, "usage-orders pre-authorize");
+  return (await res.json()) as UsageOrderItem;
+}
+
+export async function completeUsageOrder(
+  orderId: number,
+  kwh: number,
+): Promise<UsageOrderItem> {
+  requireAccessToken();
+  const res = await fetch(
+    `${getApiBase()}/api/v1/usage-orders/${orderId}/complete`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ kwh, kwhSource: "manual" }),
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) await parsePointsError(res, "usage-orders complete");
+  return (await res.json()) as UsageOrderItem;
+}
+
+export async function payUsageOrder(
+  orderId: number,
+): Promise<UsageOrderPayResult> {
+  requireAccessToken();
+  const res = await fetch(
+    `${getApiBase()}/api/v1/usage-orders/${orderId}/pay`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) await parsePointsError(res, "usage-orders pay");
+  return (await res.json()) as UsageOrderPayResult;
+}
+
+export async function cancelUsageOrder(
+  orderId: number,
+): Promise<UsageOrderPayResult> {
+  requireAccessToken();
+  const res = await fetch(
+    `${getApiBase()}/api/v1/usage-orders/${orderId}/cancel`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) await parsePointsError(res, "usage-orders cancel");
+  return (await res.json()) as UsageOrderPayResult;
+}
 
 export type PointChargeCreate = {
   paymentId: string;
@@ -536,4 +735,26 @@ export async function creditPointsApi(
   });
   if (!res.ok) await parsePointsError(res, "points credit");
   return (await res.json()) as PointCreditResult;
+}
+
+export type WaitChargerRate = {
+  chgerId: string;
+  outputKw: number | null;
+  rateMemberWon: number | string | null;
+  usedAvg: boolean;
+};
+
+export async function fetchWaitChargerRates(
+  statId: string,
+): Promise<{ statId: string; items: WaitChargerRate[]; count: number }> {
+  const q = new URLSearchParams({ stat_id: statId });
+  const res = await fetch(`${getApiBase()}/api/v1/usage-orders/rates?${q}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) await parsePointsError(res, "usage-orders rates");
+  return (await res.json()) as {
+    statId: string;
+    items: WaitChargerRate[];
+    count: number;
+  };
 }

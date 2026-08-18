@@ -1,3 +1,5 @@
+/** Canonical module: `@/stores/carStore` — filename must stay `carStore.ts`. */
+/** Canonical module: `@/stores/carStore` — filename must stay `carStore.ts`. */
 import { create } from "zustand";
 import {
   FavoriteAuthError,
@@ -6,7 +8,9 @@ import {
   fetchCarModels,
   fetchMyCars,
   setPrimaryCarApi,
+  updateCarApi,
   type CarCreateBody,
+  type CarUpdateBody,
 } from "@/lib/api";
 import type { Car, CarModel, ChargingPort } from "@/types/car";
 
@@ -24,6 +28,7 @@ type CarState = {
   setFilterByCarPort: (v: boolean) => void;
   hydrate: () => Promise<void>;
   createCar: (body: CarCreateBody) => Promise<boolean>;
+  updateCar: (carId: number, body: CarUpdateBody) => Promise<boolean>;
   setPrimary: (carId: number, isPrimary: boolean) => Promise<boolean>;
   removeCar: (carId: number) => Promise<boolean>;
   clear: () => void;
@@ -119,6 +124,24 @@ export const useCarStore = create<CarState>((set, get) => ({
         return false;
       }
       window.alert(e instanceof Error ? e.message : "차량 등록에 실패했습니다");
+      set({ saving: false });
+      return false;
+    }
+  },
+
+  updateCar: async (carId, body) => {
+    set({ saving: true });
+    try {
+      await updateCarApi(carId, body);
+      await get().hydrate();
+      set({ saving: false });
+      return true;
+    } catch (e) {
+      if (e instanceof FavoriteAuthError) {
+        onAuthFail(set);
+        return false;
+      }
+      window.alert(e instanceof Error ? e.message : "차량 수정에 실패했습니다");
       set({ saving: false });
       return false;
     }

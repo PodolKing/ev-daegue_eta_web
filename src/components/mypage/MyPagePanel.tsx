@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AddressSearchModal from "@/components/auth/AddressSearchModal";
 import { GuestAuthBanner } from "@/components/auth/GuestAuthBanner";
 import { MAIN_NAV, type NavId } from "@/components/layout/IconRail";
+import { HelpGuidePanel } from "@/components/mypage/HelpGuidePanel";
 import { useAuthStore } from "@/stores/authStore";
 
 const fieldClass =
@@ -26,6 +27,7 @@ export function MyPagePanel({ onSelectNav }: MyPagePanelProps) {
   const withdraw = useAuthStore((s) => s.withdraw);
 
   const [profileOpen, setProfileOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [nickname, setNickname] = useState("");
   const [address, setAddress] = useState("");
   const [addressDetail, setAddressDetail] = useState("");
@@ -99,6 +101,18 @@ export function MyPagePanel({ onSelectNav }: MyPagePanelProps) {
       setFormError(err instanceof Error ? err.message : "탈퇴에 실패했습니다");
       setWithdrawing(false);
     }
+  }
+
+  if (helpOpen) {
+    return (
+      <HelpGuidePanel
+        onBack={() => setHelpOpen(false)}
+        onSelectNav={(id) => {
+          setHelpOpen(false);
+          onSelectNav?.(id);
+        }}
+      />
+    );
   }
 
   return (
@@ -273,6 +287,16 @@ export function MyPagePanel({ onSelectNav }: MyPagePanelProps) {
             </button>
           ))}
        
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            className={rowBtnClass}
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-[var(--surface-muted)] text-[11px] font-semibold text-[var(--text-secondary)]">
+              ?
+            </span>
+            <span className="min-w-0 flex-1 truncate">사용 안내</span>
+          </button>
           <button type="button" disabled className={rowBtnClass}>
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-[var(--surface-muted)] text-[10px] text-[var(--text-muted)]">
               날

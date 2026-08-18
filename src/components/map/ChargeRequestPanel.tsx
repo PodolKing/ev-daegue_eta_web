@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getChargerTypeLabel, isSlowChargerType } from "@/lib/chargerTypes";
+import { fetchPointsBalance, fetchWaitChargerRates } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { carDisplayLabel, useCarStore } from "@/stores/carStore";
 import type { Charger, Station } from "@/types/station";
@@ -9,10 +10,19 @@ import type { Charger, Station } from "@/types/station";
 const KWH_PRESETS = [5, 10, 20, 50];
 const MIN_KWH = 0.01;
 const MAX_KWH = 400;
+const MIN_HOLD = 1000;
+const MAX_HOLD = 1_000_000;
+
+export type ChargePayDraft = {
+  canPay: boolean;
+  chgerId: string | null;
+  kwh: number;
+  limitAmountKrw: number;
+};
 
 type ChargeRequestPanelProps = {
   station: Station;
-  onCanPayChange?: (canPay: boolean) => void;
+  onDraftChange?: (draft: ChargePayDraft) => void;
 };
 
 function availableChargers(station: Station): Charger[] {
@@ -31,34 +41,99 @@ function availableChargers(station: Station): Charger[] {
 
 export function ChargeRequestPanel({
   station,
-  onCanPayChange,
+  onDraftChange,
 }: ChargeRequestPanelProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const primaryCar = useCarStore((s) => s.primaryCar);
   const available = useMemo(() => availableChargers(station), [station]);
   const [chgerId, setChgerId] = useState<string | null>(null);
   const [kwhText, setKwhText] = useState("");
+  const [limitText, setLimitText] = useState("");
+  const [rateByChgerId, setRateByChgerId] = useState<
+    Record<string, { rateWon: number | null; usedAvg: boolean }>
+  >({});
 
   const selected = available.find((c) => c.chgerId === chgerId) ?? null;
   const kwh = Number(kwhText.replace(/,/g, ""));
   const kwhOk = Number.isFinite(kwh) && kwh >= MIN_KWH && kwh <= MAX_KWH;
+  const limitAmount = Number(limitText.replace(/,/g, ""));
+  const limitOk =
+    Number.isInteger(limitAmount) &&
+    limitAmount >= MIN_HOLD &&
+    limitAmount <= MAX_HOLD;
 
   const blockReason = !isAuthenticated
-    ? "로그인해야 충전 요청을 할 수 있습니다"
+    ? "로그인해야 결제할 수 있습니다"
     : primaryCar == null
-      ? "내 차량에서 대표 차량을 선택하면 충전 서비스를 이용할 수 있습니다"
+      ? "내 차량에서 대표 차량을 선택하면 이용 결제를 할 수 있습니다"
       : available.length === 0
         ? "대기 중인 충전기가 없습니다"
         : selected == null
           ? "충전기를 선택하세요"
           : !kwhOk
             ? `사용량은 ${MIN_KWH}~${MAX_KWH} kWh`
-            : null;
+            : !limitOk
+              ? limitAmount > 0 && limitAmount < MIN_HOLD
+                ? "한도는 1,000P 이상입니다. 포인트를 충전하세요"
+                : `한도는 ${MIN_HOLD.toLocaleString("ko-KR")}~${MAX_HOLD.toLocaleString("ko-KR")}P`
+              : null;
 
   useEffect(() => {
-    onCanPayChange?.(blockReason == null);
-    return () => onCanPayChange?.(false);
-  }, [blockReason, onCanPayChange]);
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    fetchPointsBalance()
+      .then((b) => {
+        if (cancelled) return;
+        const capped = Math.min(Math.max(0, b.balance), MAX_HOLD);
+        setLimitText(String(capped));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRateByChgerId({});
+    fetchWaitChargerRates(station.stationId)
+      .then((res) => {
+        if (cancelled) return;
+        const next: Record<string, { rateWon: number | null; usedAvg: boolean }> =
+          {};
+        for (const row of res.items) {
+          const n = Number(row.rateMemberWon);
+          next[row.chgerId] = {
+            rateWon: Number.isFinite(n) ? n : null,
+            usedAvg: row.usedAvg === true,
+          };
+        }
+        setRateByChgerId(next);
+      })
+      .catch(() => {
+        if (!cancelled) setRateByChgerId({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [station.stationId]);
+
+  useEffect(() => {
+    onDraftChange?.({
+      canPay: blockReason == null,
+      chgerId,
+      kwh,
+      limitAmountKrw: limitOk ? limitAmount : 0,
+    });
+    return () => {
+      onDraftChange?.({
+        canPay: false,
+        chgerId: null,
+        kwh: 0,
+        limitAmountKrw: 0,
+      });
+    };
+  }, [blockReason, chgerId, kwh, limitOk, limitAmount, onDraftChange]);
 
   const carLabel = primaryCar == null ? "없음" : carDisplayLabel(primaryCar);
 
@@ -84,6 +159,7 @@ export function ChargeRequestPanel({
             {available.map((c) => {
               const slow = isSlowChargerType(c.chgerType);
               const active = c.chgerId === chgerId;
+              const quote = rateByChgerId[c.chgerId];
               return (
                 <li key={`${station.stationId}:${c.chgerId}`}>
                   <button
@@ -110,6 +186,16 @@ export function ChargeRequestPanel({
                         {slow ? " · 완속" : ""}
                       </span>
                     </span>
+                    {quote?.rateWon != null ? (
+                      <span className="shrink-0 text-right text-[11px] font-semibold tabular-nums text-[var(--text-secondary)]">
+                        {quote.rateWon.toLocaleString("ko-KR")}원/kWh
+                        {quote.usedAvg ? (
+                          <span className="block font-medium text-[var(--text-muted)]">
+                            추정
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
                   </button>
                 </li>
               );
@@ -149,13 +235,33 @@ export function ChargeRequestPanel({
         </div>
       </div>
 
+      <div>
+        <label
+          htmlFor="charge-limit"
+          className="text-[11px] font-medium text-[var(--text-muted)]"
+        >
+          한도 P
+        </label>
+        <input
+          id="charge-limit"
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          value={limitText}
+          onChange={(e) => setLimitText(e.target.value.replace(/[^\d]/g, ""))}
+          placeholder="1,000 이상"
+          className="mt-1.5 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3 py-2.5 text-[16px] text-[var(--text)] outline-none"
+        />
+      </div>
+
       {blockReason ? (
         <p className="text-[12px] leading-snug text-[var(--text-muted)]">
           {blockReason}
         </p>
       ) : (
         <p className="text-[12px] leading-snug text-[var(--text-secondary)]">
-          {station.stationId} · {selected?.chgerId}호 · {kwh} kWh (데모 · 실충전 없음)
+          {station.stationId} · {selected?.chgerId}호 · {kwh} kWh · 한도{" "}
+          {limitAmount.toLocaleString("ko-KR")}P (데모 · 실충전 없음)
         </p>
       )}
     </div>
