@@ -3,6 +3,7 @@ import {
   FavoriteAuthError,
   fetchFavoriteList,
   toggleFavoriteApi,
+  updateFavoriteMemoApi,
   type FavoriteItem,
   type StationSearchItem,
 } from "@/lib/api";
@@ -47,6 +48,7 @@ type FavoriteState = {
   isFavorite: (stationId: string) => boolean;
   hydrate: () => Promise<void>;
   toggleFavorite: (stationId: string, memo?: string | null) => Promise<boolean>;
+  updateMemo: (stationId: string, memo: string | null) => Promise<boolean>;
   setAddTab: (tab: FavoritesTab) => void;
   setAddDraft: (patch: Partial<FavoriteAddDraft>) => void;
   clearAddDraft: () => void;
@@ -171,6 +173,27 @@ export const useFavoriteStore = create<FavoriteState>((set, get) => ({
         title: e instanceof Error ? e.message : "즐겨찾기 처리에 실패했습니다",
         description: null,
       });
+      return false;
+    }
+  },
+  updateMemo: async (stationId, memo) => {
+    try {
+      const res = await updateFavoriteMemoApi(stationId, memo);
+      set((s) => ({
+        items: s.items.map((item) =>
+          item.stationId === stationId ? { ...item, memo: res.memo } : item,
+        ),
+      }));
+      return true;
+    } catch (e) {
+      if (e instanceof FavoriteAuthError) {
+        set({ items: [], stationIds: {}, pending: {}, status: "idle" });
+        void import("@/stores/authStore").then((m) => {
+          m.useAuthStore.getState().clear();
+        });
+        return false;
+      }
+      window.alert(e instanceof Error ? e.message : "메모 저장에 실패했습니다");
       return false;
     }
   },

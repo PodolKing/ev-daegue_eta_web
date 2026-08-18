@@ -62,6 +62,7 @@ export function CarPanel() {
   const setCars = useCarStore((s) => s.setCars);
   const setFilterByCarPort = useCarStore((s) => s.setFilterByCarPort);
   const createCar = useCarStore((s) => s.createCar);
+  const updateCar = useCarStore((s) => s.updateCar);
   const setPrimary = useCarStore((s) => s.setPrimary);
   const removeCar = useCarStore((s) => s.removeCar);
 
@@ -75,7 +76,37 @@ export function CarPanel() {
   const [overridePort, setOverridePort] = useState(false);
   const [chargingPort, setChargingPort] = useState<ChargingPort | "">("");
   const [isPrimary, setIsPrimary] = useState(true);
+  const [editingCarId, setEditingCarId] = useState<number | null>(null);
   const hasRealPrimary = primaryCar != null && !isTemp;
+
+  const resetForm = () => {
+    setEditingCarId(null);
+    setModelId("");
+    setCarNumber("");
+    setCustomModelName("");
+    setOverridePort(false);
+    setChargingPort("");
+  };
+
+  const startEdit = (car: Car) => {
+    const custom = car.carModelId == null;
+    setEditingCarId(car.id);
+    setModelId(custom ? CUSTOM_MODEL : String(car.carModelId));
+    setCarNumber(car.carNumber ?? "");
+    setCustomModelName(car.customModelName ?? "");
+    const modelPort = car.carModel?.chargingPort ?? null;
+    const carPort = car.chargingPort ?? null;
+    if (custom) {
+      setOverridePort(true);
+      setChargingPort(carPort ?? "");
+    } else if (carPort && carPort !== modelPort) {
+      setOverridePort(true);
+      setChargingPort(carPort);
+    } else {
+      setOverridePort(false);
+      setChargingPort("");
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -123,23 +154,26 @@ export function CarPanel() {
       return;
     }
 
-    if (isPrimary && !confirmReplacePrimary(hasRealPrimary ? primaryCar : null)) {
+    if (isPrimary && !editingCarId && !confirmReplacePrimary(hasRealPrimary ? primaryCar : null)) {
       return;
     }
 
-    const ok = await createCar({
-      carModelId: isCustom ? null : Number(modelId),
-      customModelName: isCustom ? customModelName.trim() : null,
-      carNumber: carNumber.trim() || null,
-      chargingPort: showPortSelect ? (chargingPort as ChargingPort) : null,
-      isPrimary,
-    });
+    const portValue = showPortSelect ? (chargingPort as ChargingPort) : null;
+    const ok = editingCarId
+      ? await updateCar(editingCarId, {
+          customModelName: isCustom ? customModelName.trim() : null,
+          carNumber: carNumber.trim() || null,
+          chargingPort: portValue,
+        })
+      : await createCar({
+          carModelId: isCustom ? null : Number(modelId),
+          customModelName: isCustom ? customModelName.trim() : null,
+          carNumber: carNumber.trim() || null,
+          chargingPort: portValue,
+          isPrimary,
+        });
     if (!ok) return;
-    setModelId("");
-    setCarNumber("");
-    setCustomModelName("");
-    setOverridePort(false);
-    setChargingPort("");
+    resetForm();
   };
 
   return (
@@ -210,8 +244,16 @@ export function CarPanel() {
                     ) : null}
                     <button
                       type="button"
+                      onClick={() => startEdit(car)}
+                      className="rounded-[8px] border border-[var(--border)] px-2 min-h-9 py-2 text-[11px] touch-manipulation"
+                    >
+                      수정
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         if (window.confirm("이 차량을 삭제할까요?")) {
+                          if (editingCarId === car.id) resetForm();
                           void removeCar(car.id);
                         }
                       }}
@@ -247,11 +289,12 @@ export function CarPanel() {
           onSubmit={onSubmit}
         >
           <p className="text-[12px] font-semibold text-[var(--text)]">
-            차량 등록
+            {editingCarId ? "차량 수정" : "차량 등록"}
           </p>
           <p className="text-[11px] leading-snug text-[var(--text-muted)]">
-            기종을 고르면 기본 충전 포트가 따라옵니다. 필요하면 포트를 직접 바꿀
-            수 있습니다.
+            {editingCarId
+              ? "번호·포트·커스텀명만 바꿀 수 있습니다. 기종 목록 교체는 삭제 후 재등록입니다."
+              : "기종을 고르면 기본 충전 포트가 따라옵니다. 필요하면 포트를 직접 바꿀 수 있습니다."}
           </p>
 
           {status === "error" ? (
@@ -269,6 +312,7 @@ export function CarPanel() {
             <select
               name="carModelId"
               value={modelId}
+              disabled={editingCarId != null}
               onChange={(e) => {
                 const next = e.target.value;
                 setModelId(next);
@@ -279,7 +323,7 @@ export function CarPanel() {
                   setOverridePort(true);
                 }
               }}
-              className={fieldClass}
+              className={`${fieldClass} disabled:bg-[var(--surface-muted)]`}
             >
               <option value="">기종 선택</option>
               {carModels.map((m) => (
@@ -287,7 +331,9 @@ export function CarPanel() {
                   {m.manufacturer} · {m.modelName}
                 </option>
               ))}
-              <option value={CUSTOM_MODEL}>목록에 없음 (직접 입력)</option>
+              {editingCarId && !isCustom ? null : (
+                <option value={CUSTOM_MODEL}>목록에 없음 (직접 입력)</option>
+              )}
             </select>
           </label>
 
@@ -394,6 +440,7 @@ export function CarPanel() {
             )}
           </div>
 
+          {editingCarId ? null : (
           <label className="flex items-center justify-between gap-2 rounded-[10px] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text)]">
             <span>대표 차량으로 설정</span>
             <input
@@ -403,13 +450,24 @@ export function CarPanel() {
               className="h-4 w-4 accent-[var(--accent)]"
             />
           </label>
+          )}
+
+          {editingCarId ? (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="w-full rounded-[var(--radius-pill)] border border-[var(--border)] px-4 py-2.5 text-[13px] font-medium text-[var(--text)] touch-manipulation"
+            >
+              수정 취소
+            </button>
+          ) : null}
 
           <button
             type="submit"
             disabled={!isAuthenticated || saving}
             className="w-full rounded-[var(--radius-pill)] bg-[var(--text)] px-4 py-3 text-[14px] font-semibold text-white shadow-[var(--shadow-sm)] disabled:opacity-50"
           >
-            {saving ? "저장 중…" : "차량 저장"}
+            {saving ? "저장 중…" : editingCarId ? "수정 저장" : "차량 저장"}
           </button>
         </form>
       ) : null}
