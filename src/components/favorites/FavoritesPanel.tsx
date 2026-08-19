@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GuestAuthBanner } from "@/components/auth/GuestAuthBanner";
 import { FavoriteStarButton } from "@/components/map/FavoriteStarButton";
 import { searchStations, type FavoriteItem } from "@/lib/api";
@@ -20,20 +20,37 @@ const fieldClass =
 export function FavoritesPanel() {
   const tab = useFavoriteStore((s) => s.addTab);
   const setTab = useFavoriteStore((s) => s.setAddTab);
+  const listSort = useFavoriteStore((s) => s.listSort);
+  const toggleListSort = useFavoriteStore((s) => s.toggleListSort);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const sortLabel = listSort === "name" ? "이름순" : "최신순";
 
   return (
     <section className="ev-scroll-panel flex h-full min-h-0 w-full flex-col bg-[var(--surface)]">
       <div className="shrink-0 border-b border-[var(--border)] px-3 pt-3">
-        <h2
-          className="text-[14px] font-bold tracking-tight text-[var(--text)] sm:text-[18px]"
-          style={{ fontFamily: "var(--font-display), sans-serif" }}
-        >
-          즐겨찾기
-        </h2>
-        <p className="mt-0.5 text-[11px] text-[var(--text-secondary)] sm:text-[12px]">
-          저장한 충전소 · 최대 10곳
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2
+              className="text-[14px] font-bold tracking-tight text-[var(--text)] sm:text-[18px]"
+              style={{ fontFamily: "var(--font-display), sans-serif" }}
+            >
+              즐겨찾기
+            </h2>
+            <p className="mt-0.5 text-[11px] text-[var(--text-secondary)] sm:text-[12px]">
+              저장한 충전소 · 최대 10곳
+            </p>
+          </div>
+          {tab === "list" ? (
+            <button
+              type="button"
+              onClick={toggleListSort}
+              aria-label={`정렬 ${sortLabel}. 누르면 바뀜`}
+              className="mt-0.5 shrink-0 rounded-[10px] border border-[var(--border)] px-2.5 py-1.5 text-[11px] font-medium text-[var(--text)] touch-manipulation hover:bg-[var(--surface-muted)]"
+            >
+              {sortLabel}
+            </button>
+          ) : null}
+        </div>
         <GuestAuthBanner
           className="mt-2"
           message="로그인해야 등록할 수 있습니다"
@@ -134,13 +151,21 @@ function FavoriteListRow({ item }: { item: FavoriteItem }) {
   const selectedId = useMapStore((s) => s.selectedId);
   const updateMemo = useFavoriteStore((s) => s.updateMemo);
   const [memo, setMemo] = useState(item.memo ?? "");
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const active = item.stationId === selectedId;
-  const dirty = memo.trim() !== (item.memo ?? "").trim();
+  const savedMemo = (item.memo ?? "").trim();
+  const dirty = memo.trim() !== savedMemo;
 
   useEffect(() => {
     setMemo(item.memo ?? "");
+    setEditing(false);
   }, [item.memo, item.stationId]);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
 
   const openStation = () => {
     void (async () => {
@@ -149,6 +174,27 @@ function FavoriteListRow({ item }: { item: FavoriteItem }) {
       }
       useMapStore.getState().selectStation(item.stationId);
     })();
+  };
+
+  const startEdit = () => {
+    setMemo(item.memo ?? "");
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setMemo(item.memo ?? "");
+    setEditing(false);
+  };
+
+  const saveMemo = async () => {
+    setSaving(true);
+    const ok = await updateMemo(item.stationId, memo.trim() || null);
+    setSaving(false);
+    if (!ok) {
+      setMemo(item.memo ?? "");
+      return;
+    }
+    setEditing(false);
   };
 
   return (
@@ -173,29 +219,70 @@ function FavoriteListRow({ item }: { item: FavoriteItem }) {
         </button>
         <FavoriteStarButton stationId={item.stationId} variant="list" />
       </div>
-      <div className="mt-1.5 flex items-center gap-1.5 px-1">
-        <input
-          type="text"
-          value={memo}
-          maxLength={100}
-          placeholder="메모"
-          onChange={(e) => setMemo(e.target.value)}
-          className="min-w-0 flex-1 rounded-[8px] border border-[var(--border)] bg-white px-2 py-1.5 text-[16px] text-[var(--text)] outline-none focus:border-[var(--accent)] sm:text-[12px]"
-        />
+      {editing ? (
+        <div className="mt-1.5 px-1">
+          <input
+            ref={inputRef}
+            type="text"
+            value={memo}
+            maxLength={100}
+            enterKeyHint="done"
+            autoComplete="off"
+            placeholder="한 줄 메모"
+            onChange={(e) => setMemo(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") cancelEdit();
+              if (e.key === "Enter" && dirty && !saving) void saveMemo();
+            }}
+            className="w-full rounded-[8px] border border-[var(--border)] bg-white px-2.5 py-2.5 text-[16px] text-[var(--text)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] sm:py-1.5 sm:text-[13px]"
+          />
+          <div className="mt-1.5 flex justify-end gap-1">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={cancelEdit}
+              className="min-h-9 rounded-[8px] px-3 touch-manipulation"
+            >
+              <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                취소
+              </span>
+            </button>
+            <button
+              type="button"
+              disabled={!dirty || saving}
+              onClick={() => void saveMemo()}
+              className="min-h-9 rounded-[8px] border border-[var(--border)] bg-white px-3 touch-manipulation disabled:opacity-40"
+            >
+              <span className="text-[11px] font-medium text-[var(--text)]">
+                {saving ? "저장 중" : "저장"}
+              </span>
+            </button>
+          </div>
+        </div>
+      ) : savedMemo ? (
+        <div className="mt-1 flex items-start gap-1 px-1">
+          <p className="min-w-0 flex-1 py-1.5 text-[12px] leading-snug text-[var(--text-secondary)]">
+            {savedMemo}
+          </p>
+          <button
+            type="button"
+            onClick={startEdit}
+            className="shrink-0 min-h-9 rounded-[8px] px-2.5 touch-manipulation"
+          >
+            <span className="text-[11px] font-medium text-[var(--accent)]">
+              수정
+            </span>
+          </button>
+        </div>
+      ) : (
         <button
           type="button"
-          disabled={!dirty || saving}
-          onClick={async () => {
-            setSaving(true);
-            const ok = await updateMemo(item.stationId, memo.trim() || null);
-            setSaving(false);
-            if (!ok) setMemo(item.memo ?? "");
-          }}
-          className="shrink-0 rounded-[8px] border border-[var(--border)] px-2 min-h-9 py-1.5 text-[11px] font-medium touch-manipulation disabled:opacity-40"
+          onClick={startEdit}
+          className="mt-0.5 min-h-9 w-full px-1 py-1 text-left touch-manipulation"
         >
-          {saving ? "…" : "저장"}
+          <span className="text-[11px] text-[var(--text-muted)]">메모 추가</span>
         </button>
-      </div>
+      )}
     </li>
   );
 }
