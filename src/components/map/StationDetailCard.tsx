@@ -6,6 +6,8 @@ import {
   getChargerTypeLabel,
   // getChargerTypeShortLabel, // 한 줄 스크롤 칩 초안 재활용 시
   isSlowChargerType,
+  STATUS_STALE_LABEL,
+  stationStatusStaleLevel,
 } from "@/lib/chargerTypes";
 import { FavoriteStarButton } from "@/components/map/FavoriteStarButton";
 import { parkingBarClass, parkingKind } from "@/lib/parking";
@@ -205,6 +207,7 @@ export function StationDetailCard() {
   const avail = detailAvailabilityLines(station);
   const availOpenOk =
     station.availableCount != null && station.availableCount > 0;
+  const staleLevel = stationStatusStaleLevel(station);
 
   function closeChargeMode() {
     setChargeMode(false);
@@ -291,6 +294,15 @@ export function StationDetailCard() {
           {!metaMode ? (
             <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-[var(--text-secondary)]">
               {station.address ?? "주소 정보 없음"}
+            </p>
+          ) : null}
+          {staleLevel !== "none" ? (
+            <p className="mt-2 rounded-[var(--radius-md)] bg-[var(--warning-soft)] px-2.5 py-1.5 text-[11px] leading-snug text-[var(--warning)]">
+              <span className="font-semibold">{STATUS_STALE_LABEL}</span>
+              {" · "}
+              {staleLevel === "all"
+                ? "최근 15일간 이 충전소 상태 갱신 없음 · 현장 확인"
+                : "일부 충전기는 최근 15일간 상태 갱신 없음 · 현장 확인"}
             </p>
           ) : null}
         </div>

@@ -326,3 +326,34 @@ export function detailAvailabilityLines(station: {
     lines: [{ label: "충전가능", value: String(n), tone: ok }],
   };
 }
+
+/** status.last_updated 기준. 사용 이력이 아님. */
+export const STATUS_STALE_DAYS = 15;
+export const STATUS_STALE_LABEL = "상태 오래됨";
+
+const STATUS_STALE_MS = STATUS_STALE_DAYS * 24 * 60 * 60 * 1000;
+
+export function isChargerStatusStale(
+  lastUpdated?: string | null,
+): boolean {
+  if (!lastUpdated) return false;
+  const t = Date.parse(lastUpdated);
+  return Number.isFinite(t) && Date.now() - t >= STATUS_STALE_MS;
+}
+
+/** 충전기 행 기준. fresh가 하나도 없으면 all. */
+export function stationStatusStaleLevel(station: {
+  chargers?: { lastUpdated?: string | null }[] | null;
+}): "none" | "some" | "all" {
+  const list = station.chargers ?? [];
+  let stale = 0;
+  let fresh = 0;
+  for (const c of list) {
+    if (!c.lastUpdated) continue;
+    if (isChargerStatusStale(c.lastUpdated)) stale += 1;
+    else fresh += 1;
+  }
+  if (stale === 0) return "none";
+  if (fresh === 0) return "all";
+  return "some";
+}

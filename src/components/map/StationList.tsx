@@ -5,6 +5,8 @@ import {
   availableCountForSlowFilter,
   filterStationsByCarPort,
   filterStationsBySlowInclude,
+  STATUS_STALE_LABEL,
+  stationStatusStaleLevel,
 } from "@/lib/chargerTypes";
 import {
   parkingFreeShort,
@@ -220,6 +222,14 @@ export function StationList({
                               className={`font-medium ${parkingListTextClass(parkingTone)}`}
                             >
                               {parkingLabel}
+                            </span>
+                          </>
+                        ) : null}
+                        {stationStatusStaleLevel(s) === "all" ? (
+                          <>
+                            <span className="text-[var(--border-strong)]">·</span>
+                            <span className="font-medium text-[var(--warning)]">
+                              {STATUS_STALE_LABEL}
                             </span>
                           </>
                         ) : null}

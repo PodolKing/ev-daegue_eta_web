@@ -447,6 +447,7 @@ export type UsageOrderItem = {
   statId: string | null;
   chgerId: string | null;
   busiId: string | null;
+  statNm?: string | null;
   kwh: number | string;
   kwhSource: string;
   rateMemberWon: number | string;

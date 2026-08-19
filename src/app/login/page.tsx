@@ -246,8 +246,8 @@ function LoginPageContent() {
   };
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)] px-4 py-4 sm:overflow-y-auto sm:py-10">
-      <div className="mx-auto flex w-full max-w-md min-h-0 flex-1 flex-col sm:flex-none sm:min-h-0">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
+      <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-4 pt-4 sm:pt-10">
         <Link
           href={returnUrl || DEFAULT_MAP_PATH}
           className="shrink-0 text-[12px] text-[var(--text-secondary)] hover:text-[var(--text)] sm:text-[13px]"
@@ -256,108 +256,110 @@ function LoginPageContent() {
         </Link>
 
         <h1
-          className="mt-3 shrink-0 text-[22px] font-extrabold tracking-tight text-[var(--text)] sm:mt-8 sm:text-[28px]"
+          className="mt-3 shrink-0 text-[22px] font-extrabold tracking-tight text-[var(--text)] sm:mt-6 sm:text-[28px]"
           style={{ fontFamily: "var(--font-display), sans-serif" }}
         >
           로그인
         </h1>
-        <p className="mt-1 hidden text-[14px] leading-relaxed text-[var(--text-secondary)] sm:mt-2 sm:block">
+        <p className="mt-1 hidden shrink-0 text-[14px] leading-relaxed text-[var(--text-secondary)] sm:mt-2 sm:block">
           이메일 또는 소셜 계정으로 시작할 수 있습니다. 지도 위치는 로그인
           후에도 유지됩니다.
         </p>
 
-        <form
-          onSubmit={onLocalLoginSubmit}
-          className="mt-3 flex shrink-0 flex-col gap-2.5 sm:mt-8 sm:gap-4"
-        >
-          <label className="block text-[11px] font-medium text-[var(--text-secondary)] sm:text-[12px]">
-            이메일
-            <input
-              name="userId"
-              type="email"
-              autoComplete="username"
-              required
-              className={fieldClass}
-              placeholder="you@example.com"
-            />
-          </label>
-
-          <label className="block text-[11px] font-medium text-[var(--text-secondary)] sm:text-[12px]">
-            비밀번호
-            <input
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              className={fieldClass}
-              placeholder="비밀번호"
-            />
-          </label>
-
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--warning-soft)] px-3 py-2 text-[12px] text-[var(--warning)] sm:text-[13px]"
-            >
-              {error}
-            </p>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={isLoading || isSocialLoading}
-            className={`${btnBase} bg-[var(--text)] text-white hover:brightness-110 disabled:opacity-60`}
+        <div className="ev-scroll-panel mt-3 min-h-0 flex-1 overflow-y-auto sm:mt-6">
+          <form
+            onSubmit={onLocalLoginSubmit}
+            className="flex flex-col gap-2.5 sm:gap-4"
           >
-            {isLoading ? "로그인 중…" : "로그인"}
-          </button>
-        </form>
+            <label className="block text-[11px] font-medium text-[var(--text-secondary)] sm:text-[12px]">
+              이메일
+              <input
+                name="userId"
+                type="email"
+                autoComplete="username"
+                required
+                className={fieldClass}
+                placeholder="you@example.com"
+              />
+            </label>
 
-        <div className="my-3 flex shrink-0 items-center gap-3 sm:my-6">
-          <span className="h-px flex-1 bg-[var(--border)]" />
-          <span className="text-[10px] tracking-wide text-[var(--text-muted)] sm:text-[11px]">
-            소셜 계정으로 계속
-          </span>
-          <span className="h-px flex-1 bg-[var(--border)]" />
+            <label className="block text-[11px] font-medium text-[var(--text-secondary)] sm:text-[12px]">
+              비밀번호
+              <input
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                className={fieldClass}
+                placeholder="비밀번호"
+              />
+            </label>
+
+            {error ? (
+              <p
+                role="alert"
+                className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--warning-soft)] px-3 py-2 text-[12px] text-[var(--warning)] sm:text-[13px]"
+              >
+                {error}
+              </p>
+            ) : null}
+
+            <button
+              type="submit"
+              disabled={isLoading || isSocialLoading}
+              className={`${btnBase} bg-[var(--text)] text-white hover:brightness-110 disabled:opacity-60`}
+            >
+              {isLoading ? "로그인 중…" : "로그인"}
+            </button>
+          </form>
+
+          <div className="my-3 flex items-center gap-3 sm:my-6">
+            <span className="h-px flex-1 bg-[var(--border)]" />
+            <span className="text-[10px] tracking-wide text-[var(--text-muted)] sm:text-[11px]">
+              소셜 계정으로 계속
+            </span>
+            <span className="h-px flex-1 bg-[var(--border)]" />
+          </div>
+
+          <div className="flex flex-col gap-2 pb-2 sm:gap-2.5">
+            <SocialLoginButton
+              provider="kakao"
+              returnUrl={returnUrl}
+              label={isSocialLoading ? "이동 중…" : "카카오로 계속하기"}
+              icon={<KakaoIcon />}
+              disabled={isLoading || isSocialLoading}
+              onStart={() => setIsSocialLoading(true)}
+              className={`${socialBtnBase} bg-[#FEE500] text-[#191600] shadow-[0_1px_2px_rgba(25,22,0,0.08)]`}
+            />
+            <SocialLoginButton
+              provider="google"
+              returnUrl={returnUrl}
+              label={isSocialLoading ? "이동 중…" : "Google로 계속하기"}
+              icon={<GoogleIcon />}
+              disabled={isLoading || isSocialLoading}
+              onStart={() => setIsSocialLoading(true)}
+              className={`${socialBtnBase} border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--surface-muted)]`}
+            />
+            <SocialLoginButton
+              provider="naver"
+              returnUrl={returnUrl}
+              label={isSocialLoading ? "이동 중…" : "네이버로 계속하기"}
+              icon={<NaverIcon />}
+              disabled={isLoading || isSocialLoading}
+              onStart={() => setIsSocialLoading(true)}
+              className={`${socialBtnBase} bg-[#03C75A] text-white shadow-[0_1px_2px_rgba(0,80,40,0.18)] [&_span:first-child]:bg-white/15`}
+            />
+          </div>
         </div>
 
-        <div className="flex shrink-0 flex-col gap-2 sm:gap-2.5">
-          <SocialLoginButton
-            provider="kakao"
-            returnUrl={returnUrl}
-            label={isSocialLoading ? "이동 중…" : "카카오로 계속하기"}
-            icon={<KakaoIcon />}
-            disabled={isLoading || isSocialLoading}
-            onStart={() => setIsSocialLoading(true)}
-            className={`${socialBtnBase} bg-[#FEE500] text-[#191600] shadow-[0_1px_2px_rgba(25,22,0,0.08)]`}
-          />
-          <SocialLoginButton
-            provider="google"
-            returnUrl={returnUrl}
-            label={isSocialLoading ? "이동 중…" : "Google로 계속하기"}
-            icon={<GoogleIcon />}
-            disabled={isLoading || isSocialLoading}
-            onStart={() => setIsSocialLoading(true)}
-            className={`${socialBtnBase} border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--surface-muted)]`}
-          />
-          <SocialLoginButton
-            provider="naver"
-            returnUrl={returnUrl}
-            label={isSocialLoading ? "이동 중…" : "네이버로 계속하기"}
-            icon={<NaverIcon />}
-            disabled={isLoading || isSocialLoading}
-            onStart={() => setIsSocialLoading(true)}
-            className={`${socialBtnBase} bg-[#03C75A] text-white shadow-[0_1px_2px_rgba(0,80,40,0.18)] [&_span:first-child]:bg-white/15`}
-          />
-        </div>
-
-        <div className="mt-auto flex shrink-0 flex-col items-center gap-2 pt-3 sm:mt-6 sm:pt-0">
+        <div className="shrink-0 border-t border-[var(--border)] bg-[var(--bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
           <Link
             href={signupHref}
             className={`${btnBase} w-full border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--surface-muted)]`}
           >
             일반 회원가입
           </Link>
-          <p className="text-center text-[11px] text-[var(--text-muted)] sm:text-[12px]">
+          <p className="mt-2 text-center text-[11px] text-[var(--text-muted)] sm:text-[12px]">
             계정이 없나요? 회원가입 또는 소셜로 시작하세요.
           </p>
         </div>

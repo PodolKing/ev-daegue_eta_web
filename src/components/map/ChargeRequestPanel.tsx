@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getChargerTypeLabel, isSlowChargerType } from "@/lib/chargerTypes";
+import {
+  getChargerTypeLabel,
+  isChargerStatusStale,
+  isSlowChargerType,
+  STATUS_STALE_LABEL,
+} from "@/lib/chargerTypes";
 import { fetchPointsBalance, fetchWaitChargerRates } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { carDisplayLabel, useCarStore } from "@/stores/carStore";
@@ -184,6 +189,11 @@ export function ChargeRequestPanel({
                       <span className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
                         {getChargerTypeLabel(c.chgerType)}
                         {slow ? " · 완속" : ""}
+                        {isChargerStatusStale(c.lastUpdated) ? (
+                          <span className="font-medium text-[var(--warning)]">
+                            {` · ${STATUS_STALE_LABEL}`}
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                     {quote?.rateWon != null ? (
