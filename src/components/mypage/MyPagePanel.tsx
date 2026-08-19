@@ -297,15 +297,6 @@ export function MyPagePanel({ onSelectNav }: MyPagePanelProps) {
             </span>
             <span className="min-w-0 flex-1 truncate">사용 안내</span>
           </button>
-          <button type="button" disabled className={rowBtnClass}>
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-[var(--surface-muted)] text-[10px] text-[var(--text-muted)]">
-              날
-            </span>
-            <span className="min-w-0 flex-1 truncate">날씨조회</span>
-            <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
-              이후 연결
-            </span>
-          </button>
         </div>
       </div>
 

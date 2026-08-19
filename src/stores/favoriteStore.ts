@@ -5,6 +5,7 @@ import {
   toggleFavoriteApi,
   updateFavoriteMemoApi,
   type FavoriteItem,
+  type FavoriteSort,
   type StationSearchItem,
 } from "@/lib/api";
 
@@ -45,7 +46,9 @@ type FavoriteState = {
   notice: FavoriteNotice | null;
   /** stationId → 원하는 찜 여부. hydrate가 덮지 않게. */
   pending: Record<string, boolean>;
+  listSort: FavoriteSort;
   isFavorite: (stationId: string) => boolean;
+  toggleListSort: () => void;
   hydrate: () => Promise<void>;
   toggleFavorite: (stationId: string, memo?: string | null) => Promise<boolean>;
   updateMemo: (stationId: string, memo: string | null) => Promise<boolean>;
@@ -84,7 +87,13 @@ export const useFavoriteStore = create<FavoriteState>((set, get) => ({
   addDraft: EMPTY_ADD_DRAFT,
   notice: null,
   pending: {},
+  listSort: "recent",
   isFavorite: (stationId) => Boolean(get().stationIds[stationId]),
+  toggleListSort: () => {
+    const listSort = get().listSort === "recent" ? "name" : "recent";
+    set({ listSort });
+    void get().hydrate();
+  },
   setAddTab: (tab) => set({ addTab: tab }),
   clearNotice: () => set({ notice: null }),
   setAddDraft: (patch) =>
@@ -93,7 +102,7 @@ export const useFavoriteStore = create<FavoriteState>((set, get) => ({
   hydrate: async () => {
     if (get().items.length === 0) set({ status: "loading" });
     try {
-      const data = await fetchFavoriteList("recent");
+      const data = await fetchFavoriteList(get().listSort);
       const items = data.items ?? [];
       const pending = get().pending;
       set({
@@ -206,5 +215,6 @@ export const useFavoriteStore = create<FavoriteState>((set, get) => ({
       addDraft: EMPTY_ADD_DRAFT,
       notice: null,
       pending: {},
+      listSort: "recent",
     }),
 }));

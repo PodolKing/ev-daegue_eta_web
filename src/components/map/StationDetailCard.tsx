@@ -9,6 +9,8 @@ import {
 } from "@/lib/chargerTypes";
 import { FavoriteStarButton } from "@/components/map/FavoriteStarButton";
 import { parkingBarClass, parkingKind } from "@/lib/parking";
+import { haversineMeters } from "@/lib/map/stationHit";
+import { useLocationStore } from "@/stores/locationStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useRecommendStore } from "@/stores/recommendStore";
 import { useRouteStore } from "@/stores/routeStore";
@@ -90,6 +92,9 @@ export function StationDetailCard() {
   const distanceM = useRouteStore((s) => s.distanceM);
   const durationSec = useRouteStore((s) => s.durationSec);
   const recommendActive = useRecommendStore((s) => s.active);
+  const recommendItems = useRecommendStore((s) => s.items);
+  const stationsAnchor = useMapStore((s) => s.stationsAnchor);
+  const coords = useLocationStore((s) => s.coords);
 
   const [showMeta, setShowMeta] = useState(false);
   const [chargeMode, setChargeMode] = useState(false);
@@ -125,6 +130,18 @@ export function StationDetailCard() {
   const station = stations.find((s) => s.stationId === selectedId);
   if (!station) return null;
   const stationId = station.stationId;
+  const recItem = recommendActive
+    ? recommendItems.find((i) => i.statId === stationId)
+    : undefined;
+  const origin = stationsAnchor ?? coords;
+  const fromOriginKm =
+    origin != null
+      ? haversineMeters(origin, { lat: station.lat, lng: station.lng }) / 1000
+      : station.distanceKm;
+  const displayStraightKm =
+    recItem?.distanceM != null
+      ? recItem.distanceM / 1000
+      : fromOriginKm;
   async function handleUsagePay() {
     if (
       payInFlightRef.current ||
@@ -580,8 +597,8 @@ export function StationDetailCard() {
                 className="text-[28px] font-extrabold leading-none tracking-tight text-[var(--text)]"
                 style={{ fontFamily: "var(--font-display), sans-serif" }}
               >
-                {station.distanceKm != null
-                  ? station.distanceKm.toFixed(1)
+                {displayStraightKm != null
+                  ? displayStraightKm.toFixed(1)
                   : "—"}
               </p>
               <p className="mt-1 text-[11px] text-[var(--text-muted)]">직선 km</p>
