@@ -33,6 +33,13 @@ function snapTranslateYPx(snap: MobileSheetSnap, vh: number): number {
   return Math.max(0, Math.round(full - visible));
 }
 
+/** Visible body under the handle. Half/peek must not use 90dvh or inner scroll never starts. */
+function snapBodyHeightCss(snap: MobileSheetSnap): string {
+  if (snap === "full") return "calc(90dvh - 2.75rem)";
+  if (snap === "half") return "calc(42dvh - 2.75rem)";
+  return "0px";
+}
+
 /**
  * Transform-based bottom sheet: finger follows while dragging,
  * ease on release. Resting snap uses dvh (no window on first paint).
@@ -240,7 +247,15 @@ export function MobileStationSheet({
             {sheetLabel}
           </span>
         </button>
-        <div className="ev-scroll-panel min-h-0 flex-1 overflow-hidden">
+        <div
+          className="ev-scroll-panel min-h-0 overflow-y-auto overscroll-contain"
+          style={{
+            height:
+              dragY != null
+                ? `${Math.max(0, Math.round(window.innerHeight * FULL_VH - dragY - PEEK_PX))}px`
+                : snapBodyHeightCss(mobileSheetSnap),
+          }}
+        >
           {activeNav === "map" && <StationList compactHeader />}
           {activeNav === "car" && <CarPanel />}
           {activeNav === "favorites" && <FavoritesPanel />}
