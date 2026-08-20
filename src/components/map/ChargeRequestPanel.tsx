@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getChargerTypeLabel,
   isChargerStatusStale,
@@ -69,6 +69,7 @@ export function ChargeRequestPanel({
   const [rateByChgerId, setRateByChgerId] = useState<
     Record<string, { rateWon: number | null; usedAvg: boolean }>
   >({});
+  const payInputRef = useRef<HTMLDivElement | null>(null);
 
   const selected = available.find((c) => c.chgerId === chgerId) ?? null;
   const kwh = Number(kwhText.replace(/,/g, ""));
@@ -182,6 +183,16 @@ export function ChargeRequestPanel({
     onDraftChange,
   ]);
 
+  useEffect(() => {
+    if (!chgerId) return;
+    const el = payInputRef.current;
+    if (!el) return;
+    const id = window.setTimeout(() => {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, [chgerId]);
+
   const carLabel = primaryCar == null ? "없음" : carDisplayLabel(primaryCar);
   const modeHint =
     mode === "amount"
@@ -259,8 +270,8 @@ export function ChargeRequestPanel({
         )}
       </div>
 
-      {/* 금액 / 사용량 탭 */}
-      <div>
+      {/* 금액 / 사용량 입력 */}
+      <div ref={payInputRef}>
         <div
           className="flex gap-1 rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-1"
           role="tablist"

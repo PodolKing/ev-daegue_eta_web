@@ -132,6 +132,8 @@ export function StationDetailCard() {
   const [shortfallKrw, setShortfallKrw] = useState(0);
   const payInFlightRef = useRef(false);
   const restoredDraftIdRef = useRef<number | null>(null);
+  const chargeCardRef = useRef<HTMLElement | null>(null);
+  const payActionsRef = useRef<HTMLDivElement | null>(null);
   const [chargePayMessage, setChargePayMessage] = useState<string | null>(null);
   const [chargeSettled, setChargeSettled] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -199,6 +201,37 @@ export function StationDetailCard() {
       );
     }
   }, [isAuthenticated, usageDraft, selectedId, stations]);
+
+  useEffect(() => {
+    if (!chargeMode) return;
+    const needEnd =
+      pendingOrderId != null &&
+      (shortfallKrw > 0 || pendingFeeReady || !!chargePayMessage);
+    if (!needEnd) return;
+    const scrollPayEnd = () => {
+      const card = chargeCardRef.current;
+      if (card) {
+        card.scrollTo({ top: card.scrollHeight, behavior: "smooth" });
+      }
+      payActionsRef.current?.scrollIntoView({
+        block: "end",
+        inline: "nearest",
+        behavior: "smooth",
+      });
+    };
+    const id = window.setTimeout(() => {
+      scrollPayEnd();
+      window.requestAnimationFrame(scrollPayEnd);
+    }, 120);
+    return () => window.clearTimeout(id);
+  }, [
+    chargeMode,
+    chargeDraft.chgerId,
+    pendingOrderId,
+    pendingFeeReady,
+    shortfallKrw,
+    chargePayMessage,
+  ]);
 
   const station = stations.find((s) => s.stationId === selectedId);
   if (!station) return null;
@@ -452,6 +485,7 @@ export function StationDetailCard() {
 
   return (
     <article
+      ref={chargeCardRef}
       className={[
         "animate-fade-up w-full border border-[var(--border)] bg-white/95 shadow-[var(--shadow-md)] backdrop-blur-md transition-[max-width,padding,min-height] duration-200",
         routeMode || metaMode || chargeMode
@@ -949,6 +983,7 @@ export function StationDetailCard() {
       ) : null}
 
       <div
+        ref={payActionsRef}
         className={[
           "mt-4 flex gap-2",
           chargeMode
