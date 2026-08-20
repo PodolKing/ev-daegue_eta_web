@@ -246,8 +246,8 @@ function LoginPageContent() {
   };
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
-      <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-4 pt-4 sm:pt-10">
+    <div className="flex h-dvh flex-col overflow-y-auto bg-[var(--bg)]">
+      <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-4 pt-4 sm:min-h-full sm:flex-none sm:pt-10">
         <Link
           href={returnUrl || DEFAULT_MAP_PATH}
           className="shrink-0 text-[12px] text-[var(--text-secondary)] hover:text-[var(--text)] sm:text-[13px]"
@@ -266,7 +266,7 @@ function LoginPageContent() {
           후에도 유지됩니다.
         </p>
 
-        <div className="ev-scroll-panel mt-3 min-h-0 flex-1 overflow-y-auto sm:mt-6">
+        <div className="ev-scroll-panel mt-3 min-h-0 flex-1 overflow-y-auto sm:mt-6 sm:flex-none sm:overflow-visible">
           <form
             onSubmit={onLocalLoginSubmit}
             className="flex flex-col gap-2.5 sm:gap-4"
