@@ -64,6 +64,9 @@ function clearRelatedStores(): void {
   void import("@/stores/carStore").then((m) => {
     m.useCarStore.getState().clear();
   });
+  void import("@/stores/usageDraftStore").then((m) => {
+    m.useUsageDraftStore.getState().clear();
+  });
 }
 
 type AuthState = {

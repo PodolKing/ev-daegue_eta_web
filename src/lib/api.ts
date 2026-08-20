@@ -459,19 +459,23 @@ export type UsageOrderItem = {
   memo: string | null;
   holdAmountKrw: number | null;
   refundAmountKrw: number | null;
+  shortfallKrw?: number | null;
   balance: number | null;
   createdAt: string;
   updatedAt: string;
 };
 
-export async function fetchUsageOrders(limit = 20): Promise<{
+export async function fetchUsageOrders(
+  limit = 20,
+  status: "confirmed" | "draft" | "cancelled" | "refunded" = "confirmed",
+): Promise<{
   items: UsageOrderItem[];
   count: number;
 }> {
   requireAccessToken();
   const q = new URLSearchParams({
     limit: String(limit),
-    status: "confirmed",
+    status,
   });
   const res = await fetch(`${getApiBase()}/api/v1/usage-orders/list?${q}`, {
     headers: authHeaders(),
@@ -515,11 +519,24 @@ export async function requestUsageOrder(
   return (await res.json()) as UsageOrderRequestResult;
 }
 
+export type UsageOrderPayMode = "amount" | "usage";
+
+export class ApiHttpError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "ApiHttpError";
+  }
+}
+// parsePointsError → throw new ApiHttpError(..., res.status)
+
+
+
 export async function preAuthorizeUsageOrder(input: {
   statId: string;
   chgerId: string;
   limitAmountKrw: number;
   idempotencyKey: string;
+  mode?: UsageOrderPayMode;
 }): Promise<UsageOrderItem> {
   requireAccessToken();
   const res = await fetch(`${getApiBase()}/api/v1/usage-orders/pre-authorize`, {
@@ -533,6 +550,7 @@ export async function preAuthorizeUsageOrder(input: {
       chgerId: input.chgerId,
       limitAmountKrw: input.limitAmountKrw,
       idempotencyKey: input.idempotencyKey,
+      mode: input.mode ?? "usage",
     }),
     cache: "no-store",
   });
@@ -542,9 +560,16 @@ export async function preAuthorizeUsageOrder(input: {
 
 export async function completeUsageOrder(
   orderId: number,
-  kwh: number,
+  input: { mode: UsageOrderPayMode; kwh?: number },
 ): Promise<UsageOrderItem> {
   requireAccessToken();
+  const body: { mode: UsageOrderPayMode; kwh?: number; kwhSource: string } = {
+    mode: input.mode,
+    kwhSource: "manual",
+  };
+  if (input.mode === "usage" && input.kwh != null) {
+    body.kwh = input.kwh;
+  }
   const res = await fetch(
     `${getApiBase()}/api/v1/usage-orders/${orderId}/complete`,
     {
@@ -553,7 +578,7 @@ export async function completeUsageOrder(
         "Content-Type": "application/json",
         ...authHeaders(),
       },
-      body: JSON.stringify({ kwh, kwhSource: "manual" }),
+      body: JSON.stringify(body),
       cache: "no-store",
     },
   );
@@ -641,7 +666,7 @@ async function parsePointsError(res: Response, fallback: string): Promise<never>
   } catch {
     /* raw */
   }
-  throw new Error(detail || `${fallback} (${res.status})`);
+  throw new ApiHttpError(detail || `${fallback} (${res.status})`, res.status);
 }
 
 export async function fetchPointsBalance(): Promise<PointsBalance> {

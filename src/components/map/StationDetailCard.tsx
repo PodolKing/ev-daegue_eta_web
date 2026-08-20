@@ -21,10 +21,19 @@ import { LoginBottomSheet } from "@/components/auth/LoginBottomSheet";
 import { buildMapReturnUrl } from "@/lib/auth/returnUrl";
 import { useAuthStore } from "@/stores/authStore";
 import {
+  isUsageOrderFeeReady,
+  useUsageDraftStore,
+} from "@/stores/usageDraftStore";
+import { requestPayment } from "@portone/browser-sdk/v2";
+import {
   cancelUsageOrder,
+  completePointCharge,
   completeUsageOrder,
+  createPointCharge,
+  failPointCharge,
   payUsageOrder,
   preAuthorizeUsageOrder,
+  ApiHttpError,
   requestUsageOrder,
 } from "@/lib/api";
 
@@ -81,6 +90,15 @@ function formatOutput(
   return v != null ? `${v} kW` : "—";
 }
 
+const TOP_UP_MIN_KRW = 1_000;
+const TOP_UP_MAX_KRW = 1_000_000;
+
+/** PortOne 최소 1,000원 — 부족분이 더 작으면 1,000으로 올림 */
+function topUpAmountFromShortfall(shortfallKrw: number): number {
+  if (shortfallKrw <= 0) return 5_000;
+  return Math.max(TOP_UP_MIN_KRW, Math.min(TOP_UP_MAX_KRW, shortfallKrw));
+}
+
 export function StationDetailCard() {
   const stations = useMapStore((s) => s.stations);
   const selectedId = useMapStore((s) => s.selectedId);
@@ -101,17 +119,26 @@ export function StationDetailCard() {
   const [showMeta, setShowMeta] = useState(false);
   const [chargeMode, setChargeMode] = useState(false);
   const [chargeDraft, setChargeDraft] = useState<ChargePayDraft>({
+    mode: "usage",
     canPay: false,
     chgerId: null,
     kwh: 0,
     limitAmountKrw: 0,
   });
+  const [topUpAmountKrw, setTopUpAmountKrw] = useState(5000);
   const [chargePaying, setChargePaying] = useState(false);
+  const [pendingOrderId, setPendingOrderId] = useState<number | null>(null);
+  const [pendingFeeReady, setPendingFeeReady] = useState(false);
+  const [shortfallKrw, setShortfallKrw] = useState(0);
   const payInFlightRef = useRef(false);
+  const restoredDraftIdRef = useRef<number | null>(null);
   const [chargePayMessage, setChargePayMessage] = useState<string | null>(null);
   const [chargeSettled, setChargeSettled] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const setPointsBalance = useAuthStore((s) => s.setPointsBalance);
+  const usageDraft = useUsageDraftStore((s) => s.draft);
+  const clearUsageDraft = useUsageDraftStore((s) => s.clear);
   const center = useMapStore((s) => s.center);
   const zoom = useMapStore((s) => s.zoom);
   const radiusKm = useMapStore((s) => s.radiusKm);
@@ -119,6 +146,7 @@ export function StationDetailCard() {
     setShowMeta(false);
     setChargeMode(false);
     setChargeDraft({
+      mode: "usage",
       canPay: false,
       chgerId: null,
       kwh: 0,
@@ -127,7 +155,50 @@ export function StationDetailCard() {
     setChargePaying(false);
     setChargePayMessage(null);
     setChargeSettled(false);
+    setPendingOrderId(null);
+    setPendingFeeReady(false);
+    setShortfallKrw(0);
+    setTopUpAmountKrw(5000);
+    restoredDraftIdRef.current = null;
   }, [selectedId]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !usageDraft || !selectedId) return;
+    if (usageDraft.statId !== selectedId) return;
+    if (!stations.some((s) => s.stationId === selectedId)) return;
+    if (restoredDraftIdRef.current === usageDraft.id) return;
+    restoredDraftIdRef.current = usageDraft.id;
+    setChargeMode(true);
+    setPendingOrderId(usageDraft.id);
+    const hold =
+      usageDraft.holdAmountKrw ?? usageDraft.amountListKrw ?? 0;
+    const fee = Number(usageDraft.amountChargeKrw);
+    const sf =
+      typeof usageDraft.shortfallKrw === "number" && usageDraft.shortfallKrw > 0
+        ? usageDraft.shortfallKrw
+        : Math.max(0, fee - Number(hold));
+
+    if (isUsageOrderFeeReady(usageDraft)) {
+      setPendingFeeReady(true);
+      setShortfallKrw(sf);
+      if (sf > 0) {
+        setTopUpAmountKrw(topUpAmountFromShortfall(sf));
+        setChargePayMessage(
+          "미완료 결제가 있습니다. 포인트 충전 후 결제를 이어주세요.",
+        );
+      } else {
+        setChargePayMessage(
+          "미완료 결제가 있습니다. 아래 결제 버튼으로 이어주세요.",
+        );
+      }
+    } else {
+      setPendingFeeReady(false);
+      setShortfallKrw(0);
+      setChargePayMessage(
+        "진행 중인 결제가 있습니다. 취소하거나 다시 시도해 주세요.",
+      );
+    }
+  }, [isAuthenticated, usageDraft, selectedId, stations]);
 
   const station = stations.find((s) => s.stationId === selectedId);
   if (!station) return null;
@@ -153,6 +224,7 @@ export function StationDetailCard() {
     ) {
       return;
     }
+    // 슬라이스 3: 금액/사용량 모드 BE 연동
     payInFlightRef.current = true;
     setChargePaying(true);
     setChargePayMessage(null);
@@ -172,21 +244,141 @@ export function StationDetailCard() {
         chgerId: chargeDraft.chgerId,
         limitAmountKrw: chargeDraft.limitAmountKrw,
         idempotencyKey,
+        mode: chargeDraft.mode,
       });
       heldId = held.id;
-      await completeUsageOrder(held.id, chargeDraft.kwh);
-      const paid = await payUsageOrder(held.id);
-      setChargeSettled(true);
-      setChargePayMessage(paid.message || "요금 정산이 완료되었습니다");
+      if (typeof held.balance === "number") {
+        setPointsBalance(held.balance);
+      }
+      const completed = await completeUsageOrder(held.id, {
+        mode: chargeDraft.mode,
+        kwh: chargeDraft.mode === "usage" ? chargeDraft.kwh : undefined,
+      });
+      if (typeof completed.shortfallKrw === "number") {
+        setShortfallKrw(completed.shortfallKrw);
+        if (completed.shortfallKrw > 0) {
+          setTopUpAmountKrw(topUpAmountFromShortfall(completed.shortfallKrw));
+        }
+      }
+      try {
+        const paid = await payUsageOrder(held.id);
+        if (typeof paid.order.balance === "number") {
+          setPointsBalance(paid.order.balance);
+        }
+        setChargeSettled(true);
+        setChargePayMessage(paid.message || "요금 정산이 완료되었습니다");
+        setPendingOrderId(null);
+        setPendingFeeReady(false);
+        setShortfallKrw(0);
+        clearUsageDraft();
+      } catch (payErr) {
+        if (payErr instanceof ApiHttpError && payErr.status === 402) {
+          setPendingOrderId(held.id);
+          setPendingFeeReady(true);
+          setChargePayMessage(payErr.message);
+          return;
+        }
+        throw payErr;
+      }
     } catch (e) {
       if (heldId != null) {
         try {
-          await cancelUsageOrder(heldId);
+          const cancelled = await cancelUsageOrder(heldId);
+          if (typeof cancelled.order.balance === "number") {
+            setPointsBalance(cancelled.order.balance);
+          }
         } catch {
-          /* 홀드 롤백 실패 — 화면은 원래 결제 에러 */
+          /* 홀드 롤백 실패 */
+        }
+        setPendingOrderId(null);
+        setPendingFeeReady(false);
+        setShortfallKrw(0);
+        clearUsageDraft();
+      }
+      setChargePayMessage(
+        e instanceof Error ? e.message : "결제에 실패했습니다",
+      );
+    } finally {
+      payInFlightRef.current = false;
+      setChargePaying(false);
+    }
+  }
+
+  async function dismissPendingOrder() {
+    if (pendingOrderId == null) return;
+    try {
+      const cancelled = await cancelUsageOrder(pendingOrderId);
+      if (typeof cancelled.order.balance === "number") {
+        setPointsBalance(cancelled.order.balance);
+      }
+    } catch {
+      /* 홀드 롤백 실패 */
+    }
+    setPendingOrderId(null);
+    setPendingFeeReady(false);
+    setShortfallKrw(0);
+    setChargePayMessage(null);
+    clearUsageDraft();
+  }
+
+  async function handleShortfallTopUp(amountKrw: number) {
+    if (pendingOrderId == null || chargePaying || payInFlightRef.current) {
+      return;
+    }
+    const amount = Math.max(1000, Math.min(1_000_000, amountKrw));
+    payInFlightRef.current = true;
+    setChargePaying(true);
+    setChargePayMessage(null);
+    let paymentId: string | null = null;
+    try {
+      const created = await createPointCharge(amount);
+      paymentId = created.paymentId;
+      const payResult = await requestPayment({
+        storeId: created.storeId,
+        channelKey: created.channelKey,
+        paymentId: created.paymentId,
+        orderName: created.orderName,
+        totalAmount: created.amountKrw,
+        currency: "CURRENCY_KRW",
+        payMethod: "CARD",
+        customer: {
+          email: created.customerEmail,
+          fullName: created.customerName,
+          phoneNumber: "01000000000",
+        },
+      });
+      if (payResult && "code" in payResult && payResult.code != null) {
+        throw new Error(
+          typeof payResult.message === "string"
+            ? payResult.message
+            : "결제가 취소되었거나 실패했습니다",
+        );
+      }
+      const done = await completePointCharge(created.paymentId);
+      if (typeof done.balance === "number") {
+        setPointsBalance(done.balance);
+      }
+      const paid = await payUsageOrder(pendingOrderId);
+      if (typeof paid.order.balance === "number") {
+        setPointsBalance(paid.order.balance);
+      }
+      setChargeSettled(true);
+      setChargePayMessage(paid.message || "요금 정산이 완료되었습니다");
+      setPendingOrderId(null);
+      setPendingFeeReady(false);
+      setShortfallKrw(0);
+      clearUsageDraft();
+    } catch (e) {
+      if (paymentId) {
+        try {
+          await failPointCharge(paymentId);
+        } catch {
+          /* 실패 기록 */
         }
       }
-      setChargePayMessage(e instanceof Error ? e.message : "결제에 실패했습니다");
+      setChargePayMessage(
+        e instanceof Error ? e.message : "포인트 충전에 실패했습니다",
+      );
     } finally {
       payInFlightRef.current = false;
       setChargePaying(false);
@@ -244,7 +436,6 @@ export function StationDetailCard() {
   // 길찾기 중에는 세부 패널보다 ETA 우선
   const metaMode = showMeta && !routeMode;
 
-  
   const meta = META_PLACEHOLDER;
 
   const closeCard = () => {
@@ -266,15 +457,23 @@ export function StationDetailCard() {
         routeMode || metaMode || chargeMode
           ? [
               "max-w-[360px] rounded-[var(--radius-lg)] p-5 md:max-w-[380px]",
-              // 세부 5줄이 스크롤 없이 들어가도록 meta는 조금 더 여유
-              metaMode || chargeMode
-                ? "min-h-[min(100%,380px)]"
-                : "min-h-[min(100%,340px)]",
+              chargeMode
+                ? "max-h-[min(calc(100dvh-5rem),680px)] max-sm:max-h-[min(calc(100dvh-var(--map-sheet-offset,42dvh)-5.5rem),640px)] overflow-y-auto overscroll-contain ev-scroll-panel"
+                : metaMode
+                  ? "min-h-[min(100%,380px)] md:min-h-0"
+                  : "min-h-[min(100%,340px)]",
             ].join(" ")
           : "max-w-[360px] rounded-[var(--radius-lg)] p-4",
       ].join(" ")}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div
+        className={[
+          "flex items-start justify-between gap-3",
+          chargeMode
+            ? "sticky top-0 z-10 -mx-5 mb-1 border-b border-[var(--border)]/50 bg-white/95 px-5 pb-3 shadow-[0_4px_12px_rgba(0,0,0,0.04)] backdrop-blur-md"
+            : "",
+        ].join(" ")}
+      >
         <div className="min-w-0">
           <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-muted)]">
             {routeMode
@@ -370,7 +569,7 @@ export function StationDetailCard() {
         </div>
       ) : chargeMode ? (
         <div
-          className="ev-scroll-panel mt-3 max-h-[min(440px,58dvh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-1"
+          className="mt-3 rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-1"
           aria-label="충전 요청"
         >
           <ChargeRequestPanel
@@ -380,7 +579,7 @@ export function StationDetailCard() {
         </div>
       ) : metaMode ? (
         <div
-          className="ev-scroll-panel mt-3 max-h-[min(300px,46dvh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-1"
+          className="mt-3 rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-1 md:overflow-visible"
           aria-label="충전소 세부정보"
         >
           <dl className="divide-y divide-[var(--border)]">
@@ -677,12 +876,86 @@ export function StationDetailCard() {
               : "text-[var(--text-secondary)]",
           ].join(" ")}
         >
-          {chargeSettled ? "정산 완료 · " : ""}
           {chargePayMessage}
         </p>
       ) : null}
+      {pendingOrderId != null && !chargeSettled ? (
+        <div className="mt-3 flex flex-col gap-1.5">
+          {pendingFeeReady && shortfallKrw > 0 ? (
+            <>
+              <p className="text-[12px] leading-snug text-[var(--text-secondary)]">
+                {shortfallKrw.toLocaleString("ko-KR")}P가 부족합니다. 아래 금액으로
+                포인트를 충전한 뒤 결제됩니다.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={chargePaying}
+                  onClick={() => setTopUpAmountKrw(5000)}
+                  className="min-h-9 flex-1 rounded-[10px] border border-[var(--border)] bg-white px-2 text-[12px] font-semibold disabled:opacity-40"
+                >
+                  5,000
+                </button>
+                <button
+                  type="button"
+                  disabled={chargePaying}
+                  onClick={() => setTopUpAmountKrw(10000)}
+                  className="min-h-9 flex-1 rounded-[10px] border border-[var(--border)] bg-white px-2 text-[12px] font-semibold disabled:opacity-40"
+                >
+                  10,000
+                </button>
+              </div>
+              <input
+                type="text"
+                inputMode="numeric"
+                disabled={chargePaying}
+                value={topUpAmountKrw.toLocaleString("ko-KR")}
+                onChange={(e) => {
+                  const n = Number(e.target.value.replace(/[^\d]/g, ""));
+                  setTopUpAmountKrw(Number.isFinite(n) ? n : 0);
+                }}
+                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-2 text-[16px]"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={chargePaying}
+                  onClick={() => void dismissPendingOrder()}
+                  className="flex-1 rounded-[var(--radius-pill)] border border-[var(--border)] px-3 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] disabled:opacity-40"
+                >
+                  결제 취소
+                </button>
+                <button
+                  type="button"
+                  disabled={chargePaying || topUpAmountKrw < 1000}
+                  onClick={() => void handleShortfallTopUp(topUpAmountKrw)}
+                  className="flex-[1.4] rounded-[var(--radius-pill)] bg-[var(--accent)] px-3 py-2.5 text-[13px] font-semibold text-white disabled:opacity-40"
+                >
+                  {chargePaying ? "충전 중" : "포인트 충전"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              disabled={chargePaying}
+              onClick={() => void dismissPendingOrder()}
+              className="rounded-[var(--radius-pill)] border border-[var(--border)] px-4 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] disabled:opacity-40"
+            >
+              결제 취소
+            </button>
+          )}
+        </div>
+      ) : null}
 
-      <div className="mt-4 flex gap-2">
+      <div
+        className={[
+          "mt-4 flex gap-2",
+          chargeMode
+            ? "sticky bottom-0 z-10 -mx-5 border-t border-[var(--border)]/50 bg-white/95 px-5 pb-0 pt-3 shadow-[0_-4px_12px_rgba(0,0,0,0.04)] backdrop-blur-md"
+            : "",
+        ].join(" ")}
+      >
         {routeMode ? (
           <button
             type="button"
@@ -730,19 +1003,22 @@ export function StationDetailCard() {
           <button
             type="button"
             disabled={
-              isAuthenticated &&
-              !chargeSettled &&
-              !chargePaying &&
-              !chargeDraft.canPay
+              chargePaying ||
+              (isAuthenticated &&
+                !chargeSettled &&
+                pendingOrderId == null &&
+                !chargeDraft.canPay)
             }
             aria-disabled={
-              isAuthenticated &&
-              !chargeSettled &&
-              !chargePaying &&
-              !chargeDraft.canPay
+              chargePaying ||
+              (isAuthenticated &&
+                !chargeSettled &&
+                pendingOrderId == null &&
+                !chargeDraft.canPay)
             }
             onClick={() => {
-              if (chargeSettled || chargePaying) {
+              if (chargePaying) return;
+              if (chargeSettled) {
                 closeChargeMode();
                 return;
               }
@@ -750,19 +1026,49 @@ export function StationDetailCard() {
                 setLoginOpen(true);
                 return;
               }
+              if (pendingOrderId != null) {
+                if (payInFlightRef.current) return;
+                payInFlightRef.current = true;
+                setChargePaying(true);
+                void (async () => {
+                  try {
+                    const paid = await payUsageOrder(pendingOrderId);
+                    if (typeof paid.order.balance === "number") {
+                      setPointsBalance(paid.order.balance);
+                    }
+                    setChargeSettled(true);
+                    setChargePayMessage(
+                      paid.message || "요금 정산이 완료되었습니다",
+                    );
+                    setPendingOrderId(null);
+                    setPendingFeeReady(false);
+                    setShortfallKrw(0);
+                    clearUsageDraft();
+                  } catch (e) {
+                    setChargePayMessage(
+                      e instanceof Error ? e.message : "결제에 실패했습니다",
+                    );
+                  } finally {
+                    payInFlightRef.current = false;
+                    setChargePaying(false);
+                  }
+                })();
+                return;
+              }
               void handleUsagePay();
             }}
             className={[
               "relative flex flex-[1.4] items-center justify-center gap-1 rounded-[var(--radius-pill)] bg-[var(--accent)] px-4 py-2.5 text-[13px] font-semibold text-white touch-manipulation",
-              isAuthenticated &&
-              !chargeSettled &&
-              !chargePaying &&
-              !chargeDraft.canPay
+              chargePaying ||
+              (isAuthenticated &&
+                !chargeSettled &&
+                pendingOrderId == null &&
+                !chargeDraft.canPay)
                 ? "cursor-not-allowed opacity-40"
                 : "transition hover:opacity-90",
             ].join(" ")}
           >
-            {chargeSettled || chargePaying ? "완료" : "결제"}
+            {chargePaying ? "결제 중" : "결제"}
             <span aria-hidden>›</span>
           </button>
         ) : (
